@@ -1,5 +1,6 @@
-// The phone line window: ringing, the typed-out transcript, the intake form and the
-// decision buttons. It knows no rules; it only reports the player's choice.
+// The phone line window: ringing, the typed-out transcript, the intake form, the
+// "Ask a question" menu and the decision buttons. It knows no rules; it reports what the
+// player does through the handlers passed to ring().
 
 import { COMPANY } from '../../data/company.js';
 import { el, createWindow } from './desktop.js';
@@ -10,11 +11,11 @@ const TYPE_MS = 16; // per character
 const LINE_PAUSE_MS = 350; // between lines, unless a line sets `pause`
 
 const INTAKE_FIELDS = [
-  ['name', 'Name'],
-  ['employeeId', 'Employee ID'],
+  ['name', 'Name', true],
+  ['employeeId', 'Employee ID', true],
   ['department', 'Department'],
   ['site', 'Site'],
-  ['manager', 'Manager'],
+  ['manager', 'Manager', true],
   ['callback', 'Callback #'],
   ['request', 'Request'],
   ['detail', 'Details'],
@@ -23,7 +24,9 @@ const INTAKE_FIELDS = [
 let win;
 let refs;
 let typing = null; // { skip, dead } for the transcript being typed
-let onDecision = null;
+let handlers = null; // { onAnswer, onAsk, onDecision, onLookup } for the current call
+let caller = null;
+let asked = new Set();
 
 export function mount(container) {
   win = createWindow({ id: 'call-window', title: 'Line 1 - Idle', icon: '☎', className: 'call-window' });
@@ -32,8 +35,12 @@ export function mount(container) {
     transcript: el('div', { class: 'transcript inset', 'aria-live': 'polite', title: 'Click to skip ahead' }),
     intake: el('dl', { class: 'intake' }),
     stampLayer: el('div', { class: 'stamp-layer' }),
+    menu: el('div', { class: 'menu hidden', role: 'menu' }),
   };
-  refs.intakeWrap = el('fieldset', { class: 'intake-wrap' }, [el('legend', { text: 'Ticket intake' }), refs.intake, refs.stampLayer]);
+  refs.intakeWrap = el('fieldset', { class: 'intake-wrap' }, [
+    el('legend', { text: 'Ticket intake (click a name or ID to look it up)' }), refs.intake, refs.stampLayer,
+  ]);
+  refs.ask = el('button', { class: 'btn ask', type: 'button', text: '? Ask a question', 'aria-haspopup': 'menu', onclick: toggleMenu });
   refs.buttons = {
     approve: el('button', { class: 'btn decide approve', type: 'button', text: '✔ Approve', onclick: () => decide('approve') }),
     deny: el('button', { class: 'btn decide deny', type: 'button', text: '✖ Deny', onclick: () => decide('deny') }),
@@ -42,13 +49,28 @@ export function mount(container) {
   refs.transcript.addEventListener('click', () => {
     if (typing) typing.skip = true;
   });
-  win.body.append(refs.status, refs.transcript, refs.intakeWrap, el('div', { class: 'actions' }, Object.values(refs.buttons)));
+  document.addEventListener('click', (e) => {
+    if (!refs.menu.contains(e.target) && e.target !== refs.ask) refs.menu.classList.add('hidden');
+  });
+  win.body.append(
+    refs.status,
+    refs.transcript,
+    refs.intakeWrap,
+    el('div', { class: 'actions' }, [
+      el('div', { class: 'ask-wrap' }, [refs.ask, refs.menu]),
+      el('div', { class: 'spacer' }),
+      ...Object.values(refs.buttons),
+    ]),
+  );
   container.append(win.root);
   idle('Waiting for shift to start.');
 }
 
 function setButtons(enabled) {
   for (const b of Object.values(refs.buttons)) b.disabled = !enabled;
+  const left = (caller?.questions ?? []).filter((q) => !asked.has(q.ask)).length;
+  refs.ask.disabled = !enabled || !left;
+  if (!enabled) refs.menu.classList.add('hidden');
 }
 
 function stopTyping() {
@@ -58,7 +80,8 @@ function stopTyping() {
 
 export function idle(message) {
   stopTyping();
-  onDecision = null;
+  handlers = null;
+  caller = null;
   win.setTitle('Line 1 - Idle');
   refs.status.className = 'call-status';
   refs.status.replaceChildren(el('span', { class: 'label', text: 'No active call' }));
@@ -68,13 +91,15 @@ export function idle(message) {
   setButtons(false);
 }
 
-// Shows an incoming call. `decided(choice)` fires once the stamp has landed.
-export function ring(caller, decided) {
+// Shows an incoming call. handlers: { onAnswer(), onAsk(), onDecision(choice), onLookup(text) }.
+export function ring(next, callHandlers) {
   idle('Phone is ringing...');
-  onDecision = decided;
+  caller = next;
+  handlers = callHandlers;
+  asked = new Set();
   win.setTitle('Line 1 - Incoming call');
   refs.status.className = 'call-status ringing';
-  const answerBtn = el('button', { class: 'btn primary answer', type: 'button', text: '☎ Answer', onclick: () => answer(caller) });
+  const answerBtn = el('button', { class: 'btn primary answer', type: 'button', text: '☎ Answer', onclick: answer });
   refs.status.replaceChildren(
     el('span', {}, [el('span', { class: 'label', text: 'Incoming call ' }), el('span', { class: 'number', text: caller.callerId.number })]),
     answerBtn,
@@ -83,34 +108,63 @@ export function ring(caller, decided) {
   audio.play('ring');
 }
 
-function answer(caller) {
+// Shown in the status line when the clock runs out mid-call.
+export function lastCall() {
+  if (!caller) return;
+  refs.status.querySelector('.skip-hint')?.replaceWith(el('span', { class: 'skip-hint warn', text: '17:00. Finish this call, then go home.' }));
+}
+
+function answer() {
   audio.play('click');
   win.setTitle('Line 1 - On call');
   refs.status.className = 'call-status';
-  const hint = el('span', { class: 'skip-hint', text: 'Click the transcript to skip ahead' });
   refs.status.replaceChildren(
     el('span', {}, [el('span', { class: 'label', text: 'Connected ' }), el('span', { class: 'number', text: caller.callerId.number })]),
-    hint,
+    el('span', { class: 'skip-hint', text: 'Click the transcript to skip ahead' }),
   );
   refs.transcript.replaceChildren();
   renderIntake(caller.claims);
-  typeLines(caller.claims.name, caller.dialogue ?? [], () => {
-    hint.textContent = 'Make your decision';
-    setButtons(true);
-  });
+  handlers.onAnswer();
+  typeLines(caller.dialogue ?? [], ready);
+}
+
+function ready() {
+  const hint = refs.status.querySelector('.skip-hint:not(.warn)');
+  if (hint) hint.textContent = 'Make your decision';
+  setButtons(true);
 }
 
 function renderIntake(claims) {
   refs.intake.replaceChildren();
-  for (const [key, label] of INTAKE_FIELDS) {
+  for (const [key, label, lookup] of INTAKE_FIELDS) {
     let value = claims[key];
     if (value === undefined || value === '') continue;
     if (key === 'request') value = COMPANY.requestTypes[value]?.label ?? value;
-    refs.intake.append(el('dt', { text: label }), el('dd', { text: value }));
+    const content = lookup
+      ? el('button', { class: 'link', type: 'button', title: `Look up "${value}"`, text: value, onclick: () => handlers?.onLookup(value) })
+      : value;
+    refs.intake.append(el('dt', { text: label }), el('dd', {}, content));
   }
 }
 
-function typeLines(callerName, lines, done) {
+function toggleMenu() {
+  audio.play('click');
+  const questions = (caller?.questions ?? []).filter((q) => !asked.has(q.ask));
+  refs.menu.replaceChildren(...questions.map((q) => el('button', {
+    class: 'menu-item', type: 'button', role: 'menuitem', text: q.ask, onclick: () => ask(q),
+  })), el('p', { class: 'menu-note', text: `Each question takes about ${COMPANY.timeCosts.question} minutes.` }));
+  refs.menu.classList.toggle('hidden');
+}
+
+function ask(q) {
+  refs.menu.classList.add('hidden');
+  asked.add(q.ask);
+  handlers.onAsk(q);
+  setButtons(false);
+  typeLines([{ from: 'agent', text: q.ask }, { from: 'caller', text: q.answer }], ready);
+}
+
+function typeLines(lines, done) {
   stopTyping();
   const job = { skip: false, dead: false };
   typing = job;
@@ -127,7 +181,7 @@ function typeLines(callerName, lines, done) {
     const agent = line.from === 'agent';
     const says = el('span', { class: 'says' });
     refs.transcript.append(el('div', { class: `line ${agent ? 'agent' : 'caller'}` }, [
-      el('span', { class: 'who', text: `${agent ? 'You' : callerName}:` }),
+      el('span', { class: 'who', text: `${agent ? 'You' : caller.claims.name}:` }),
       says,
     ]));
 
@@ -157,9 +211,10 @@ function scrollDown() {
 }
 
 function decide(choice) {
+  if (!handlers) return;
+  const { onDecision } = handlers;
+  handlers = { ...handlers, onDecision: null };
   if (!onDecision) return;
-  const report = onDecision;
-  onDecision = null;
   setButtons(false);
-  stamp.slam(refs.stampLayer, refs.intakeWrap, choice).then(() => report(choice));
+  stamp.slam(refs.stampLayer, refs.intakeWrap, choice).then(() => onDecision(choice));
 }

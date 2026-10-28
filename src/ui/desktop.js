@@ -58,6 +58,10 @@ export function setClock(text) {
   document.getElementById('clock').textContent = text;
 }
 
+export function setQueue(text) {
+  document.getElementById('queue').textContent = text;
+}
+
 export function initTaskbar() {
   const muteBtn = document.getElementById('mute-btn');
   const render = () => {

@@ -12,7 +12,9 @@
  *   checks     string[] Names of functions in src/checks.js. The rule
  *                       fails if ANY of its checks fails.
  *   onFail     "deny" | "escalate"   What policy says to do when it fails.
- *                       If several rules fail, "deny" wins over "escalate".
+ *                       A check can override this for its own failure (for
+ *                       example, "on leave" escalates inside a deny rule).
+ *                       If several checks fail, "deny" wins over "escalate".
  *
  * To add a rule that needs new logic, write one small function in checks.js
  * and reference its name here. Rules that reuse existing checks need no code.
@@ -29,13 +31,13 @@ export const RULES = [
     onFail: "deny"
   },
   {
-    // Ready for Day 2 (Phase 2). No day turns it on yet.
     id: "hr-active",
     title: "The employee must be active in the HR Roster.",
     binderText:
-      "Check the HR Roster. Terminated employees must be denied, even if their AD account still works. " +
-      "Employees on leave should be escalated to Tier 2.",
-    checks: ["hrNotTerminated"],
+      "Check the HR Roster, not just AD. AD accounts are not always disabled on time. " +
+      "Terminated: deny, even if their AD account still works. " +
+      "On leave: escalate to Tier 2, who will confirm with their manager.",
+    checks: ["hrNotTerminated", "hrNotOnLeave"],
     onFail: "deny"
   }
 ];

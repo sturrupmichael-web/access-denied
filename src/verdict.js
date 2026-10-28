@@ -44,7 +44,7 @@ export function evaluate(caller, dayNumber) {
       const result = check(caller, ctx);
       if (result.pass) continue;
       failures.push({ rule, reason: result.reason });
-      const verdict = rule.onFail ?? 'deny';
+      const verdict = result.verdict ?? rule.onFail ?? 'deny';
       if (SEVERITY[verdict] > SEVERITY[correct]) correct = verdict;
     }
   }

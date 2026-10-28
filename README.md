@@ -7,15 +7,16 @@ against your desk tools, then Approve, Deny or Escalate.
 
 The company, the people and the numbers are made up. This is a personal project.
 
-**Status: Phase 1.** One shift of four calls with the AD Lookup tool and the
-Approve/Deny/Escalate stamps. The full shift, more tools, meters and the story come in
-later phases.
+**Status: Phase 2.** Two full shifts (8 and 10 calls) against the clock, all six desk
+tools, verification questions, the end-of-shift summary, and saving. Days 3 to 5, the
+manager callback and MFA actions, the meters, and random callers come in Phase 3.
 
 ```
 dev.html          the page for development (loads src/ as ES modules)
 index.html        the built page (npm run build), one self-contained file; not in git
 data/             all the content: company, employees, rules, callers, days (see data/schema.md)
-src/              the game: shift.js, verdict.js, checks.js, ui/ (windows, call, AD Lookup, stamp)
+src/              the game: shift.js, clock.js, verdict.js, checks.js, state.js (saving),
+                  ui/ (windows, call, stamp, dialogs) and ui/tools/ (one file per desk tool)
 css/              the Windows 95-style look
 build.mjs         builds index.html
 tests/            npm test
@@ -38,16 +39,30 @@ it.
 
 ### How to play
 
-1. Read the morning briefing. It lists the verification rules in effect today. Click
-   **Clock in**.
-2. Click **Answer** when the phone rings. The transcript types out. Click it to skip ahead.
-3. Check the ticket intake against **AD Lookup**: search the name or the employee ID and
-   click a result to see the record.
-4. Stamp it: **Approve**, **Deny**, or **Escalate** (always safe, but slow). The call review
-   explains what the checks found and who the caller really was.
+1. Read the morning briefing. It lists the verification rules in effect today, and they
+   stay in the **Policy** tab all shift. Click **Clock in**.
+2. The clock runs from 9:00 to 17:00 over about eight real minutes, and pauses while a
+   dialog is open. The taskbar shows how many callers are waiting.
+3. Click **Answer** when the phone rings. The transcript types out. Click it to skip ahead.
+4. Check the ticket intake against the **Desk Tools**. Click a name or ID on the intake to
+   search for it in the open tab.
+   - **AD Lookup**: the account: status, title, manager, office, groups
+   - **HR Roster**: active, terminated or on leave
+   - **Org Chart**: who reports to whom
+   - **Tickets**: recent tickets, so you can spot a suspicious number of resets
+   - **Caller ID**: the incoming number, where it geolocates, and who has called from it before
+   - **Policy**: today's rules, the employee ID format and the sites
+5. **? Ask a question** to hear the caller's answer to a verification question. Each one
+   costs a few minutes of clock.
+6. Stamp it: **Approve**, **Deny** or **Escalate**. Escalating is always safe, but it costs
+   ten minutes. The call review explains what the checks found and who the caller really was.
+7. At 17:00, or when the queue is empty, the summary shows your calls, breaches, wrongful
+   denials, callers left waiting, CSAT, and a note from Bev. Then start the next day.
 
-The speaker icon in the taskbar mutes the sound. The setting is saved in `localStorage`
-as `accessDenied:muted`.
+The game saves after every call. Reload, and it offers to continue where you left off.
+Saves use `localStorage` keys starting with `accessDenied:`, so they don't mix with other
+games on the site. The speaker icon in the taskbar mutes the sound. Add `?speed=10` to the
+address to run the clock ten times faster when testing.
 
 ## Add content
 
@@ -57,8 +72,9 @@ call is judged, and each file lists its fields at the top.
 
 ## Tests
 
-`npm test` checks the content files for broken references, checks that each Day 1 caller
-gets the verdict its story intends, and plays a full shift in headless Chromium on
+`npm test` checks the content files for broken references, checks that on its day every
+attacker is caught by the rules and no genuine caller is denied, and plays through Day 1
+and Day 2, the tools, saving and the clock running out in headless Chromium on
 `dev.html`, on the built `index.html`, and on `index.html` opened from disk. Run
 `npm run build` first so the built page is tested too. `npm test -- node` skips the browser.
 

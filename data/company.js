@@ -1,8 +1,8 @@
 /* =============================================================================
- * COMPANY: the fictional employer and its reference data.
+ * COMPANY: the fictional employer, its reference data, and shift timing.
  * -----------------------------------------------------------------------------
  * Everything here is lookup data the engine and tools use. Nothing here is a
- * caller or a day. See data/schema.md for the full reference.
+ * caller or a day. See data/schema.md for how the files fit together.
  * ========================================================================== */
 export const COMPANY = {
   // Shown in window titles and emails.
@@ -25,9 +25,10 @@ export const COMPANY = {
   ],
 
   // Department names exactly as AD spells them.
-  departments: ["Executive", "Facilities", "Finance", "IT", "Logistics", "Sales"],
+  departments: ["Engineering", "Executive", "Facilities", "Finance", "IT", "Logistics", "Sales"],
 
   // Every request a caller can make. A caller's `claims.request` must be one of these keys.
+  // Ticket History entries use the same keys (or "other").
   //   label       - what the intake form shows
   //   privileged  - true for admin-level requests (Day 4 adds a manager-callback rule for these)
   requestTypes: {
@@ -35,6 +36,25 @@ export const COMPANY = {
     account_unlock:   { label: "Account unlock",            privileged: false },
     access_request:   { label: "Access request",            privileged: false },
     software_install: { label: "Software install",          privileged: false },
-    admin_access:     { label: "Admin / privileged access", privileged: true }
+    admin_access:     { label: "Admin / privileged access", privileged: true },
+    other:            { label: "Other",                     privileged: false }
+  },
+
+  // The shift clock. In-game time runs from `start` to `end` over `realSeconds` of real
+  // time (480 real seconds for 8 game hours = one game minute per real second). The clock
+  // pauses while a dialog (briefing, call review) is open.
+  shift: {
+    start: "09:00",
+    end: "17:00",
+    realSeconds: 480,
+    // A genuine caller whose call takes longer than this (game minutes, from Answer to
+    // stamp) rates the call one point lower.
+    slowCallMinutes: 12
+  },
+
+  // Game minutes that actions add on top of the running clock.
+  timeCosts: {
+    question: 3,   // each "Ask a question"
+    escalate: 10   // handing the call to Tier 2 takes a while
   }
 };
