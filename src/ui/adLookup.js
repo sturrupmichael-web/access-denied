@@ -16,13 +16,18 @@ export function mount(container) {
     results: el('div', { class: 'results inset' }),
     record: el('div', { class: 'record inset' }),
   };
-  const form = el('form', { class: 'search-row' }, [refs.input, el('button', { class: 'btn', type: 'submit', text: 'Find Now' })]);
-  form.addEventListener('submit', (e) => {
-    e.preventDefault();
+  // Not a <form>: sandboxed previews (like the Claude app's) block form submission.
+  const find = () => {
     audio.play('click');
     search(refs.input.value);
+  };
+  refs.input.addEventListener('keydown', (e) => {
+    if (e.key !== 'Enter') return;
+    e.preventDefault();
+    find();
   });
-  win.body.append(form, refs.results, refs.record);
+  const findBtn = el('button', { class: 'btn find', type: 'button', text: 'Find Now', onclick: find });
+  win.body.append(el('div', { class: 'search-row', role: 'search' }, [refs.input, findBtn]), refs.results, refs.record);
   container.append(win.root);
   reset();
 }

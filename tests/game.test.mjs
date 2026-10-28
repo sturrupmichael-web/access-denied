@@ -26,9 +26,12 @@ export const tests = [
   ['AD Lookup finds an employee by ID and shows the record', async (page) => {
     await page.click('text=Clock in');
     await page.fill('#ad-lookup input', 'HD-12266');
-    await page.click('#ad-lookup button[type=submit]');
+    await page.click('#ad-lookup .find');
     const record = await page.textContent('#ad-lookup .record');
     assert(record.includes('Jonathan Whittaker') && record.includes('Marguerite Dunleavy (HD-10540)'), record);
+    await page.fill('#ad-lookup input', 'dale');
+    await page.press('#ad-lookup input', 'Enter');
+    assert((await page.textContent('#ad-lookup .record')).includes('HD-11850'), 'Enter should search too');
   }],
   ['a full shift plays through to the summary', async (page) => {
     assert((await playCall(page, 'approve')).includes('Correct'), 'Priya should be a correct approve');
