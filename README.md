@@ -7,15 +7,18 @@ against your desk tools, then Approve, Deny or Escalate.
 
 The company, the people and the numbers are made up. This is a personal project.
 
-**Status: Phase 2.** Two full shifts (8 and 10 calls) against the clock, all six desk
-tools, verification questions, the end-of-shift summary, and saving. Days 3 to 5, the
-manager callback and MFA actions, the meters, and random callers come in Phase 3.
+**Status: Phase 3.** Five days, each adding a rule. Six desk tools, verification
+questions, manager callbacks and MFA pushes, the Breach / CSAT / Patience meters with their
+emails and game overs, random callers mixed in from Day 3, and saving. The story emails,
+endings, title screen and sound polish come in Phase 4.
 
 ```
 dev.html          the page for development (loads src/ as ES modules)
 index.html        the built page (npm run build), one self-contained file; not in git
-data/             all the content: company, employees, rules, callers, days (see data/schema.md)
-src/              the game: shift.js, clock.js, verdict.js, checks.js, state.js (saving),
+data/             all the content: company, employees, rules, callers, days, meters, endings,
+                  and the pools random callers are built from (see data/schema.md)
+src/              the game: shift.js, clock.js, verdict.js, checks.js, actions.js (callback, MFA),
+                  meters.js, generator.js (random callers), state.js (saving),
                   ui/ (windows, call, stamp, dialogs) and ui/tools/ (one file per desk tool)
 css/              the Windows 95-style look
 build.mjs         builds index.html
@@ -52,12 +55,31 @@ it.
    - **Tickets**: recent tickets, so you can spot a suspicious number of resets
    - **Caller ID**: the incoming number, where it geolocates, and who has called from it before
    - **Policy**: today's rules, the employee ID format and the sites
-5. **? Ask a question** to hear the caller's answer to a verification question. Each one
-   costs a few minutes of clock.
-6. Stamp it: **Approve**, **Deny** or **Escalate**. Escalating is always safe, but it costs
-   ten minutes. The call review explains what the checks found and who the caller really was.
-7. At 17:00, or when the queue is empty, the summary shows your calls, breaches, wrongful
+5. **? Ask question** to hear the caller's answer to a verification question. Each one
+   costs a few minutes of clock. From Day 3, a wrong answer means deny.
+6. From Day 4, **☎ Call manager** rings the employee's manager from the directory to confirm
+   an admin request. From Day 5, **📱 MFA push** pings the account's registered phone before
+   a password reset. Each costs clock time and gives a result in the transcript.
+7. Stamp it: **Approve**, **Deny** or **Escalate**. Escalating is always safe, but it costs
+   ten minutes and annoys Tier 2 when it wasn't needed. The call review explains what the
+   checks found, who the caller really was, and how the meters moved.
+8. At 17:00, or when the queue is empty, the summary shows your calls, breaches, wrongful
    denials, callers left waiting, CSAT, and a note from Bev. Then start the next day.
+
+| Day | New rule |
+| --- | --- |
+| 1 | Name and employee ID must match AD |
+| 2 | The employee must be active in HR (terminated: deny, on leave: escalate) |
+| 3 | Caller ID must match the employee's site, or ask a verification question |
+| 4 | Admin requests need a manager callback |
+| 5 | Password resets need an approved MFA push |
+
+**The meters** in the taskbar carry over between days. **Breach** goes up when you approve an
+attacker: the first one brings a Security Incident email, the second sends you home for the
+rest of the day, and a full meter ends the game ("You've been reassigned"). **CSAT** drops
+when real employees are turned away or kept waiting, and too low gets you a formal note.
+**Patience** is Bev's: breaches, complaints and needless escalations wear it down, and at zero
+you're on a Performance Improvement Plan.
 
 The game saves after every call. Reload, and it offers to continue where you left off.
 Saves use `localStorage` keys starting with `accessDenied:`, so they don't mix with other
@@ -73,8 +95,9 @@ call is judged, and each file lists its fields at the top.
 ## Tests
 
 `npm test` checks the content files for broken references, checks that on its day every
-attacker is caught by the rules and no genuine caller is denied, and plays through Day 1
-and Day 2, the tools, saving and the clock running out in headless Chromium on
+attacker is caught by a careful agent and no genuine caller is denied (for the handwritten
+callers and for random ones from 40 seeds a day), and plays through Days 1, 2 and 4, the
+tools, the desk actions, saving, the clock running out and a game over in headless Chromium on
 `dev.html`, on the built `index.html`, and on `index.html` opened from disk. Run
 `npm run build` first so the built page is tested too. `npm test -- node` skips the browser.
 

@@ -9,9 +9,13 @@ import { CHECKS } from './checks.js';
 
 const SEVERITY = { approve: 0, escalate: 1, deny: 2 };
 
-const byId = new Map(DIRECTORY.map((e) => [e.id.toUpperCase(), e]));
+// Looked up live, because generated employees (generator.js) join the directory mid-game.
+export const findEmployee = (id) => {
+  const key = String(id ?? '').trim().toUpperCase();
+  return DIRECTORY.find((e) => e.id.toUpperCase() === key) ?? null;
+};
 
-export const findEmployee = (id) => byId.get(String(id ?? '').trim().toUpperCase()) ?? null;
+export const NO_ACTIONS = { asked: [], callback: null, mfa: null };
 
 const ctx = {
   company: COMPANY,
@@ -30,8 +34,9 @@ export function activeRules(dayNumber) {
   return [...active].map((id) => RULES.find((r) => r.id === id)).filter(Boolean);
 }
 
+// actions: what the player did on the call (see checks.js).
 // -> { correct: 'approve' | 'deny' | 'escalate', failures: [{ rule, reason }] }
-export function evaluate(caller, dayNumber) {
+export function evaluate(caller, dayNumber, actions = NO_ACTIONS) {
   const failures = [];
   let correct = 'approve';
   for (const rule of activeRules(dayNumber)) {
@@ -41,7 +46,7 @@ export function evaluate(caller, dayNumber) {
         console.warn(`[Access Denied] Rule "${rule.id}" uses unknown check "${name}".`);
         continue;
       }
-      const result = check(caller, ctx);
+      const result = check(caller, ctx, { ...NO_ACTIONS, ...actions });
       if (result.pass) continue;
       failures.push({ rule, reason: result.reason });
       const verdict = result.verdict ?? rule.onFail ?? 'deny';

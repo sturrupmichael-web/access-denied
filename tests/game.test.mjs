@@ -27,7 +27,11 @@ async function playCall(page, choice) {
   return page.textContent('.overlay .verdict-banner');
 }
 
-const next = (page) => page.click('.overlay .btn.primary');
+// Clicks the dialog's main button, then reads past any emails it leads to.
+async function next(page) {
+  await page.click('.overlay .btn.primary');
+  while (await page.locator('.overlay .email').count()) await page.click('.overlay .btn.primary');
+}
 
 export const tests = [
   ['boots to the briefing with no errors', async (page) => {
@@ -113,7 +117,7 @@ export const tests = [
     await page.waitForFunction(() => window.accessDenied && !document.getElementById('boot'));
     const text = await page.textContent('.overlay');
     if (page.url().startsWith('file:') && !text.includes('partway')) return; // no storage on file://
-    assert(text.includes('partway through Day 2: 6 of 10'), text);
+    assert(text.includes('partway through Day 2: 6 calls done'), text);
     await page.click('text=Continue');
     await next(page); // briefing: Back to work
     await answer(page);
@@ -128,6 +132,44 @@ export const tests = [
     const summary = await page.textContent('.overlay .stats');
     assert(/at 17:003/.test(summary), summary);
     assert(!page.errors.length, page.errors.join('\n'));
+  }],
+  ['Day 4: Call manager rings the manager on file, and the meters move', async (page) => {
+    await page.evaluate(() => {
+      document.getElementById('modal-root').replaceChildren();
+      window.accessDenied.shift.begin(4);
+    });
+    assert((await page.textContent('.overlay')).includes('need a callback'), 'Day 4 briefing');
+    await next(page);
+    await answer(page); // Aisha
+    assert(await page.isVisible('.action-callback'), 'Call manager is offered on Day 4');
+    assert(!(await page.isVisible('.action-mfa')), 'MFA is not offered until Day 5');
+    await page.click('.action-callback');
+    await page.waitForSelector('.decide.approve:not([disabled])');
+    assert((await page.textContent('.transcript')).includes('Rick:'), 'the callback reaches Rick, her manager on file');
+    assert(await page.isDisabled('.action-callback'), 'one callback per call');
+    const before = await page.evaluate(() => window.accessDenied.meters.current().patience);
+    assert((await playCallDecision(page, 'approve')).includes('Correct'), 'confirmed admin request is approved');
+    assert((await page.textContent('.overlay .meter-change')).includes('CSAT +3'), 'review shows the meter change');
+    assert((await page.evaluate(() => window.accessDenied.meters.current().patience)) >= before, 'patience did not drop');
+    assert(!page.errors.length, page.errors.join('\n'));
+  }],
+  ['a full breach meter ends the game with the reassignment ending', async (page) => {
+    await page.evaluate(() => localStorage.setItem('accessDenied:meters', JSON.stringify({ breach: 95, csat: 75, patience: 100, tripped: ['security-incident', 'sent-home'] })));
+    await page.reload();
+    await page.waitForFunction(() => window.accessDenied && !document.getElementById('boot'));
+    if (page.url().startsWith('file:') && !(await page.textContent('.overlay')).includes('partway')) return; // no storage on file://
+    await page.click('text=Continue');
+    await next(page);
+    await playCall(page); await next(page); // Rick's reset
+    await answer(page); // fake Dale
+    await page.click('.decide.approve');
+    await page.waitForSelector('.overlay');
+    await page.click('.overlay .btn.primary');
+    await page.waitForSelector('.ending-heading');
+    assert((await page.textContent('.overlay')).includes("You've been reassigned"), await page.textContent('.overlay'));
+    await page.click('text=New game');
+    assert((await page.textContent('.overlay')).includes('Orientation'), 'New game starts Day 1');
+    assert((await page.evaluate(() => window.accessDenied.meters.current().breach)) === 0, 'meters reset');
   }],
   ['mute is saved under the accessDenied: prefix', async (page) => {
     await page.click('#mute-btn');

@@ -62,6 +62,20 @@ export function setQueue(text) {
   document.getElementById('queue').textContent = text;
 }
 
+// The three meters in the taskbar. values: { breach, csat, patience }, each 0 to 100.
+export function setMeters(values) {
+  const box = document.getElementById('meters');
+  const bars = [
+    ['breach', 'Breach', values.breach, values.breach >= 67 ? 'bad' : values.breach >= 34 ? 'warn' : 'ok'],
+    ['csat', 'CSAT', values.csat, values.csat <= 35 ? 'bad' : values.csat <= 55 ? 'warn' : 'ok'],
+    ['patience', 'Patience', values.patience, values.patience <= 25 ? 'bad' : values.patience <= 50 ? 'warn' : 'ok'],
+  ];
+  box.replaceChildren(...bars.map(([id, label, v, level]) => el('div', { class: 'meter', id: `meter-${id}`, title: `${label}: ${Math.round(v)} of 100` }, [
+    el('span', { class: 'meter-label', text: label }),
+    el('span', { class: 'meter-bar inset' }, el('span', { class: `meter-fill ${level}`, style: `width: ${v}%` })),
+  ])));
+}
+
 export function initTaskbar() {
   const muteBtn = document.getElementById('mute-btn');
   const render = () => {

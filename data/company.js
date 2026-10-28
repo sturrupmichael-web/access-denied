@@ -49,12 +49,14 @@ export const COMPANY = {
     realSeconds: 480,
     // A genuine caller whose call takes longer than this (game minutes, from Answer to
     // stamp) rates the call one point lower.
-    slowCallMinutes: 12
+    slowCallMinutes: 20
   },
 
   // Game minutes that actions add on top of the running clock.
   timeCosts: {
     question: 3,   // each "Ask a question"
+    callback: 8,   // "Call manager": dialing out, waiting, explaining
+    mfa: 4,        // "Send MFA push": waiting for someone to find their phone
     escalate: 10   // handing the call to Tier 2 takes a while
   }
 };

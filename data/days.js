@@ -8,9 +8,10 @@
  *   briefing    string[] Paragraphs of the morning memo from your boss.
  *   addRules    string[] Rule ids (rules.js) that switch on today and stay on.
  *   removeRules string[] Optional. Rule ids that switch off from today.
- *   callers     string[] The call queue, in order, as caller ids from callers.js.
- *                        Callers still waiting at the end of the shift count as
- *                        missed. (Phase 3 adds { procedural: n } entries.)
+ *   callers     Array    The call queue, in order. Each entry is a caller id
+ *                        from callers.js, or { procedural: n } for n random
+ *                        callers from data/pools.js. Callers still waiting at
+ *                        the end of the shift count as missed.
  *   bossNotes            End-of-shift note from your boss. The first that applies:
  *     breach      string   you approved at least one attacker
  *     complaints  string   you wrongly denied or missed a genuine caller
@@ -74,6 +75,84 @@ export const DAYS = [
       clean:
         "Clean day. Audit is happy, which has never happened before. I don't know how to feel. " +
         "More rules are coming tomorrow, and the phones get busier. - Bev"
+    }
+  },
+  {
+    day: 3,
+    title: "Where are you calling from?",
+    weekday: "Wednesday",
+    briefing: [
+      "Yesterday's terminated-employee calls went well, mostly. Today, Security wants us looking at where calls come from.",
+      "Check the Caller ID tab on every call. If the area code doesn't match the employee's site, ask them a verification question " +
+        "before you do anything. People travel, so a strange number alone isn't a no. But a strange number and a wrong answer is.",
+      "If you skip the question on a mismatch, escalate it. And yes, our friend with the 0199 number is still out there. - Bev"
+    ],
+    addRules: ["caller-location"],
+    callers: [
+      "d3-felix-travel", "d3-carla-reset", "d3-gloria-fake", { procedural: 2 },
+      "d3-tomasz-install", "d3-whitaker-voip", "d3-wendy-unlock", { procedural: 2 }
+    ],
+    bossNotes: {
+      breach:
+        "One of today's calls came from halfway around the world and you let it in. " +
+        "When Caller ID looks wrong, ask the question. Every time. - Bev",
+      complaints:
+        "Real employees, some of them on business trips, got turned away today. A strange number is a reason to ask, not a reason to hang up. - Bev",
+      clean:
+        "Good work. Security says the overseas calls dropped off after lunch, which means word is getting around. " +
+        "Tomorrow: admin requests get a callback. - Bev"
+    }
+  },
+  {
+    day: 4,
+    title: "Call the manager",
+    weekday: "Thursday",
+    briefing: [
+      "Admin rights are what attackers actually want, so from today every admin or privileged request needs a callback.",
+      "Use the Call manager button. It rings the manager in the directory, not the name the caller gives you, so an attacker can't hand you their accomplice. " +
+        "If the manager confirms, go ahead. If they say no, deny, even if the caller is real. If nobody picks up, escalate.",
+      "It costs you a few minutes per call. It costs an attacker everything. - Bev"
+    ],
+    addRules: ["manager-callback"],
+    callers: [
+      "d4-aisha-admin", "d4-rick-reset", "d4-dale-fake", { procedural: 2 },
+      "d4-raj-admin", "d4-tomasz-admin", "d4-imogen-admin", "d4-marcus-admin", { procedural: 2 }
+    ],
+    bossNotes: {
+      breach:
+        "Someone has admin rights today who shouldn't. We're rotating credentials all night. " +
+        "Admin request means callback. No callback means escalate. - Bev",
+      complaints:
+        "A few managers say their people were turned away even though they would have said yes. Make the call before you decide. - Bev",
+      clean:
+        "Four days in and you're making Tier 2 look slow. Don't tell Raj I said that. " +
+        "Tomorrow is the big one: MFA on every password reset. - Bev"
+    }
+  },
+  {
+    day: 5,
+    title: "Push it",
+    weekday: "Friday",
+    briefing: [
+      "It's Friday, and Security has saved their favourite rule for last. Every password reset now needs an approved MFA push.",
+      "MFA push sends a notification to the phone registered on the account, not the phone the caller is using. " +
+        "Approved means it's really them. Denied means the real owner just told you it isn't. No response means escalate.",
+      "Expect people to beg you to skip it. Their phone is dead, it's in the car, they're boarding a plane. " +
+        "Some of them will even be telling the truth. Don't skip it. - Bev"
+    ],
+    addRules: ["mfa-reset"],
+    callers: [
+      "d5-priya-reset", "d5-felix-reset", "d5-hannah-fake", { procedural: 2 },
+      "d5-dale-reset", "d5-carla-admin", { procedural: 2 }, "d5-rick-fake"
+    ],
+    bossNotes: {
+      breach:
+        "An attacker got a reset through on the day we turned MFA on. I don't even know what to say. Monday, we talk. - Bev",
+      complaints:
+        "Lots of real people stuck without a password going into the weekend. Escalate the ones who can't do the push. Don't hang up on them. - Bev",
+      clean:
+        "That's a week. You caught our 0199 friend every time they called, and they called a lot. " +
+        "Have a good weekend. You've earned it. - Bev"
     }
   }
 ];

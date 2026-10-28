@@ -1,6 +1,6 @@
 # Content files
 
-Everything you can see in the game comes from the five files in this folder. Each one is a
+Everything you can see in the game comes from the files in this folder. Each one is a
 plain JavaScript file that exports one table, so you can write comments next to anything.
 Each file also has its fields listed in a comment at the top. This page shows how the files
 fit together.
@@ -11,6 +11,10 @@ directory.js   the real employees: what AD Lookup, HR Roster, Org Chart and Tick
 rules.js       the verification policy: each rule and the checks behind it
 callers.js     the phone calls: what each caller claims, says, and really is
 days.js        the shifts: briefing, which rules switch on, the call queue
+meters.js      the Breach / CSAT / Patience meters: what moves them, and the emails and
+               game overs when they cross a line
+endings.js     the game-over screens
+pools.js       names, departments, lines and phone numbers for random callers
 ```
 
 ## How a call is judged
@@ -20,7 +24,8 @@ You never write an answer key. When the player stamps a call:
 1. The game gathers every rule switched on so far. A day's `addRules` turn rules on, and
    they stay on for every later day unless a day lists them in `removeRules`.
 2. Each rule runs its `checks` (small functions in `src/checks.js`) against the
-   caller's `claims` and the `directory`.
+   caller's `claims`, the `directory`, and what the player did on the call: which questions
+   they asked, and the results of Call manager and MFA push.
 3. If no check fails, policy says **Approve**. If any fail, policy says the rule's `onFail`
    (`deny` beats `escalate` when several fail). A check can ask for a different answer for
    its own failure: in the HR rule, terminated means deny but on leave means escalate.
@@ -28,10 +33,21 @@ You never write an answer key. When the player stamps a call:
    whether approving it counts as a breach, and whether denying a genuine caller
    counts as a wrongful denial.
 
-So to make a social engineer, give them `attacker: true` and **claims that don't match the
-directory** in a way today's rules catch. A misspelled name, an ID with four digits, or an
-ID nobody has all fail the Day 1 rule. To make a tricky genuine caller, make them rude or
-rushed but keep every detail right.
+So to make a social engineer, give them `attacker: true` and **one thing a careful agent
+would catch with today's rules**:
+
+| From | Tell |
+| --- | --- |
+| Day 1 | a misspelled name, an ID in the wrong format, an ID nobody has |
+| Day 2 | claiming to be someone HR has terminated |
+| Day 3 | a Caller ID that doesn't match the employee's site, with a `tell` on every question |
+| Day 4 | an admin request, with `managerCallback: { result: "denies" }` (the default for attackers) |
+| Day 5 | a password reset, with `mfa: { result: "denied" }` (the default for attackers) |
+
+A careful agent asks every question and uses every action the day unlocks. `npm test`
+checks that a careful agent denies every attacker and doesn't deny any genuine caller
+(except when their own manager says no on the callback). To make a tricky genuine caller,
+make them rude, rushed, travelling, or without their phone, but keep every detail right.
 
 If a story beat needs a fixed answer whatever the rules say, set `expected` on the caller.
 
@@ -41,6 +57,17 @@ player a second way to spot a tell ("Who's your manager?" answered with the wron
 The **Caller ID** tab remembers every number that called and the name it gave, across
 days. Reusing an attacker's `callerId.number` on a later day lets an alert player link the
 calls. The recurring threat actor uses `(234) 555-0199` and the callback `(330) 555-0199`.
+
+## Random callers
+
+Put `{ procedural: 2 }` in a day's `callers` list for two random callers at that point in
+the queue. Each one is a new employee built from `pools.js` (name, department, title, site,
+phone), added to the directory for the day so every tool can find them, plus a call. About
+a third are attackers, each with one tell from the table above that today's rules can catch
+(the newest rule's tells come up most). Genuine ones are sometimes travelling from Day 3.
+
+The picks come from a seed saved with the game, so a reload replays the same callers and a
+New game shuffles them. Add names, lines or phone numbers to `pools.js` for more variety.
 
 ## Scoring
 
@@ -53,6 +80,11 @@ calls. The recurring threat actor uses `(234) 555-0199` and the callback `(330) 
   if the call took longer than `company.shift.slowCallMinutes`.
 - Bev's note at the end comes from the day's `bossNotes`: `breach` if you allowed one,
   `complaints` if you wrongly denied or missed a genuine caller, otherwise `clean`.
+- **Meters** (`meters.js`): every stamp moves Breach, CSAT and Patience by the amounts in
+  `perCall`, the end of each shift by `perShift`, and each new day by `perDayStart`. Each
+  entry in `events` fires once when its meter crosses the line: an email, and optionally
+  `sendHome` (the rest of the shift is lost) or `gameOver` with an `ending` from
+  `endings.js`. It can fire again only after the meter has gone back across the line.
 
 ## Adding content
 

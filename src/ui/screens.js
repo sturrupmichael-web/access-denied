@@ -7,7 +7,7 @@ import { el, showModal } from './desktop.js';
 const VERB = { approve: 'Approve', deny: 'Deny', escalate: 'Escalate' };
 
 // buttonLabel: "Clock in" for a fresh shift, "Back to work" when resuming one.
-export function showBriefing(day, rules, onStart, buttonLabel = 'Clock in') {
+export function showBriefing(day, rules, queueLength, onStart, buttonLabel = 'Clock in') {
   const memo = el('div', { class: 'memo inset' }, [
     el('div', { class: 'memo-head' }, [
       el('div', { text: 'TO:      Tier 1 Service Desk' }),
@@ -23,7 +23,7 @@ export function showBriefing(day, rules, onStart, buttonLabel = 'Clock in') {
       el('br'),
       r.binderText,
     ]))),
-    el('p', { class: 'debrief', text: `Calls in the queue: ${day.callers.length}. Phones open ${COMPANY.shift.start} to ${COMPANY.shift.end}. The policy is in the Policy tab all day.` }),
+    el('p', { class: 'debrief', text: `Calls in the queue: ${queueLength}. Phones open ${COMPANY.shift.start} to ${COMPANY.shift.end}. The policy is in the Policy tab all day.` }),
   ]);
   showModal({
     title: `${COMPANY.deskName} - Morning briefing`,
@@ -39,7 +39,8 @@ const BANNERS = {
   wrong: { cls: 'wrong', text: '✖ Against policy' },
 };
 
-export function showResult(caller, evaluation, graded, nextLabel, onNext) {
+// meterText: "Breach +34, Patience -25", or empty.
+export function showResult(caller, evaluation, graded, meterText, nextLabel, onNext) {
   const banner = BANNERS[graded.outcome];
   const content = [
     el('p', { class: `verdict-banner ${banner.cls}`, text: banner.text }),
@@ -57,6 +58,7 @@ export function showResult(caller, evaluation, graded, nextLabel, onNext) {
   else if (graded.wrongfulDenial) content.push(el('p', { class: 'verdict-banner wrong', text: 'A real employee is now very annoyed.' }));
   content.push(el('p', { text: caller.attacker ? 'This caller was a social engineer.' : 'This caller was a genuine employee.' }));
   if (caller.debrief) content.push(el('p', { class: 'debrief', text: caller.debrief }));
+  if (meterText) content.push(el('p', { class: 'meter-change', text: meterText }));
 
   showModal({
     title: 'Call review',
@@ -76,7 +78,8 @@ export function showShiftEnd(day, s, note, buttons) {
     ['Legit users wrongly denied', s.wrongfulDenials],
     ['Callers left waiting at 17:00', s.missed],
     ['Caller satisfaction (CSAT)', `${s.csat}%`],
-  ].flatMap(([k, v]) => [el('dt', { text: k }), el('dd', { text: v })]));
+    s.sentHome && ['Sent home early', 'Yes'],
+  ].filter(Boolean).flatMap(([k, v]) => [el('dt', { text: k }), el('dd', { text: v })]));
 
   showModal({
     title: `End of shift - Day ${day.day}`,
@@ -86,6 +89,33 @@ export function showShiftEnd(day, s, note, buttons) {
       el('div', { class: 'memo inset' }, [el('div', { class: 'memo-head', text: 'FROM: Bev Kowalczyk' }), el('p', { text: note })]),
     ],
     buttons,
+  });
+}
+
+// An email from a meter event: { from, subject, body }.
+export function showEmail(email, onClose) {
+  showModal({
+    title: 'Inbox - 1 new message',
+    icon: '✉',
+    content: el('div', { class: 'memo inset email' }, [
+      el('div', { class: 'memo-head' }, [el('div', { text: `FROM:    ${email.from}` }), el('div', { text: `SUBJECT: ${email.subject}` })]),
+      el('p', { text: email.body }),
+    ]),
+    buttons: [{ label: 'OK', primary: true, onClick: onClose }],
+  });
+}
+
+// A game over: an entry from data/endings.js.
+export function showEnding(ending, onNewGame) {
+  showModal({
+    title: ending.title,
+    icon: '📄',
+    content: [
+      el('p', { class: 'ending-heading', text: ending.heading }),
+      ...ending.body.map((p) => el('p', { text: p })),
+      el('p', { class: 'debrief', text: 'GAME OVER' }),
+    ],
+    buttons: [{ label: 'New game', primary: true, onClick: onNewGame }],
   });
 }
 

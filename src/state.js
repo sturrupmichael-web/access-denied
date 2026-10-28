@@ -4,6 +4,9 @@
 //   progress  { nextDay }: the day to play next
 //   history   { [day]: summary } of finished shifts
 //   callLog   { "<day>:<callerId>": { day, number, name } }: every answered call, for Caller ID
+//   seed      a random number picked at New game, so random callers differ between games
+//             but stay the same after a reload
+//   meters    the Breach / CSAT / Patience meters (see meters.js)
 
 import { load, save, remove } from './storage.js';
 import { COMPANY } from '../data/company.js';
@@ -58,7 +61,16 @@ export function finishDay(summary, nextDay) {
 }
 
 export function newGame() {
-  for (const key of ['shift', 'progress', 'history', 'callLog']) remove(key);
+  for (const key of ['shift', 'progress', 'history', 'callLog', 'seed']) remove(key);
+}
+
+export function gameSeed() {
+  let seed = load('seed', null);
+  if (typeof seed !== 'number') {
+    seed = Math.floor(Math.random() * 2 ** 31);
+    save('seed', seed);
+  }
+  return seed;
 }
 
 // Genuine callers rate each call 1 to 5. Attackers don't fill in surveys.

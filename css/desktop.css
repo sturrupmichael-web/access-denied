@@ -159,7 +159,7 @@ legend { padding: 0 4px; }
 .intake .empty { color: var(--muted); font-style: italic; grid-column: 1 / -1; }
 
 .actions { display: flex; gap: 8px; justify-content: flex-end; flex-wrap: wrap; }
-.decide { font-weight: bold; min-width: 110px; }
+.decide { font-weight: bold; min-width: 96px; padding-left: 8px; padding-right: 8px; }
 .decide.approve:not(:disabled) { color: var(--ok); }
 .decide.deny:not(:disabled) { color: var(--bad); }
 .decide.escalate:not(:disabled) { color: var(--warn); }
@@ -367,3 +367,31 @@ legend { padding: 0 4px; }
 .binder .rules p { margin-top: 2px; }
 .new-badge { display: inline-block; margin-left: 6px; padding: 0 4px; background: var(--bad); color: #fff; font-size: 10px; font-weight: bold; vertical-align: 1px; }
 .memo p { white-space: pre-line; }
+
+/* ===== Meters (taskbar) ===== */
+.meters { display: flex; gap: 12px; align-items: center; padding-left: 6px; }
+.meter { display: flex; align-items: center; gap: 5px; font-size: 12px; }
+.meter-bar { display: inline-block; width: 70px; height: 14px; padding: 1px; background: var(--field); }
+.meter-fill { display: block; height: 100%; transition: width 400ms ease; }
+.meter-fill.ok { background: var(--title); }
+.meter-fill.warn { background: #c88a00; }
+.meter-fill.bad { background: var(--bad); }
+@media (max-width: 1100px) { .meter-label { display: none; } .meter-bar { width: 44px; } }
+
+/* ===== Desk actions and system lines in the transcript ===== */
+.btn.action { min-width: 0; padding-left: 10px; padding-right: 10px; }
+.transcript .line.system { font-family: var(--mono); font-size: 12px; color: var(--muted); }
+.transcript .line.system .who { color: var(--muted); }
+.transcript .line.system.confirms, .transcript .line.system.approved { color: var(--ok); font-weight: bold; }
+.transcript .line.system.denies, .transcript .line.system.denied { color: var(--bad); font-weight: bold; }
+.transcript .line.system.unreachable, .transcript .line.system.timeout { color: var(--warn); font-weight: bold; }
+
+/* ===== Call review and endings ===== */
+.meter-change { font-family: var(--mono); font-size: 12px; border-top: 1px dashed var(--shadow); padding-top: 6px; }
+.ending-heading { font-size: 20px; font-weight: bold; color: var(--bad); }
+
+/* One row of call buttons, even with both desk actions showing. */
+.actions { flex-wrap: nowrap; gap: 6px; }
+.actions .btn { min-width: 0; padding-left: 9px; padding-right: 9px; white-space: nowrap; }
+.actions .decide { min-width: 88px; }
+@media (max-width: 900px) { .actions { flex-wrap: wrap; } }

@@ -1,6 +1,7 @@
 // The phone line window: ringing, the typed-out transcript, the intake form, the
-// "Ask a question" menu and the decision buttons. It knows no rules; it reports what the
-// player does through the handlers passed to ring().
+// "Ask a question" menu, the desk actions (Call manager, Send MFA push) and the decision
+// buttons. It knows no rules; it reports what the player does through the handlers
+// passed to ring().
 
 import { COMPANY } from '../../data/company.js';
 import { el, createWindow } from './desktop.js';
@@ -24,9 +25,15 @@ const INTAKE_FIELDS = [
 let win;
 let refs;
 let typing = null; // { skip, dead } for the transcript being typed
-let handlers = null; // { onAnswer, onAsk, onDecision, onLookup } for the current call
+let handlers = null; // see ring()
 let caller = null;
 let asked = new Set();
+let done = new Set(); // desk actions already used on this call
+
+const ACTIONS = {
+  callback: { label: '☎ Call manager', busy: 'Calling the manager on file...' },
+  mfa: { label: '📱 MFA push', busy: 'Sending a push to the registered phone...' },
+};
 
 export function mount(container) {
   win = createWindow({ id: 'call-window', title: 'Line 1 - Idle', icon: '☎', className: 'call-window' });
@@ -40,7 +47,9 @@ export function mount(container) {
   refs.intakeWrap = el('fieldset', { class: 'intake-wrap' }, [
     el('legend', { text: 'Ticket intake (click a name or ID to look it up)' }), refs.intake, refs.stampLayer,
   ]);
-  refs.ask = el('button', { class: 'btn ask', type: 'button', text: '? Ask a question', 'aria-haspopup': 'menu', onclick: toggleMenu });
+  refs.ask = el('button', { class: 'btn ask', type: 'button', text: '? Ask question', 'aria-haspopup': 'menu', onclick: toggleMenu });
+  refs.actionButtons = Object.fromEntries(Object.entries(ACTIONS).map(([kind, a]) => [kind,
+    el('button', { class: `btn action action-${kind} hidden`, type: 'button', text: a.label, onclick: () => runAction(kind) })]));
   refs.buttons = {
     approve: el('button', { class: 'btn decide approve', type: 'button', text: '✔ Approve', onclick: () => decide('approve') }),
     deny: el('button', { class: 'btn decide deny', type: 'button', text: '✖ Deny', onclick: () => decide('deny') }),
@@ -58,6 +67,7 @@ export function mount(container) {
     refs.intakeWrap,
     el('div', { class: 'actions' }, [
       el('div', { class: 'ask-wrap' }, [refs.ask, refs.menu]),
+      ...Object.values(refs.actionButtons),
       el('div', { class: 'spacer' }),
       ...Object.values(refs.buttons),
     ]),
@@ -70,6 +80,10 @@ function setButtons(enabled) {
   for (const b of Object.values(refs.buttons)) b.disabled = !enabled;
   const left = (caller?.questions ?? []).filter((q) => !asked.has(q.ask)).length;
   refs.ask.disabled = !enabled || !left;
+  for (const [kind, b] of Object.entries(refs.actionButtons)) {
+    b.classList.toggle('hidden', !handlers?.actions?.includes(kind));
+    b.disabled = !enabled || done.has(kind);
+  }
   if (!enabled) refs.menu.classList.add('hidden');
 }
 
@@ -91,12 +105,19 @@ export function idle(message) {
   setButtons(false);
 }
 
-// Shows an incoming call. handlers: { onAnswer(), onAsk(), onDecision(choice), onLookup(text) }.
+// Shows an incoming call. callHandlers:
+//   actions          desk actions to offer: ['callback', 'mfa']
+//   onAnswer()       the player picked up
+//   onAsk(question)  the player asked one of caller.questions
+//   onAction(kind)   the player used a desk action; returns { result, line }
+//   onLookup(text)   the player clicked a name or ID on the intake
+//   onDecision(choice)  the stamp has landed: 'approve' | 'deny' | 'escalate'
 export function ring(next, callHandlers) {
   idle('Phone is ringing...');
   caller = next;
   handlers = callHandlers;
   asked = new Set();
+  done = new Set();
   win.setTitle('Line 1 - Incoming call');
   refs.status.className = 'call-status ringing';
   const answerBtn = el('button', { class: 'btn primary answer', type: 'button', text: '☎ Answer', onclick: answer });
@@ -164,7 +185,15 @@ function ask(q) {
   typeLines([{ from: 'agent', text: q.ask }, { from: 'caller', text: q.answer }], ready);
 }
 
-function typeLines(lines, done) {
+function runAction(kind) {
+  audio.play('click');
+  done.add(kind);
+  setButtons(false);
+  const outcome = handlers.onAction(kind);
+  typeLines([{ from: 'system', text: ACTIONS[kind].busy }, { from: 'system', text: outcome.line, result: outcome.result }], ready);
+}
+
+function typeLines(lines, finished) {
   stopTyping();
   const job = { skip: false, dead: false };
   typing = job;
@@ -174,16 +203,13 @@ function typeLines(lines, done) {
     if (job.dead) return;
     if (i >= lines.length) {
       typing = null;
-      done();
+      finished();
       return;
     }
     const line = lines[i++];
-    const agent = line.from === 'agent';
     const says = el('span', { class: 'says' });
-    refs.transcript.append(el('div', { class: `line ${agent ? 'agent' : 'caller'}` }, [
-      el('span', { class: 'who', text: `${agent ? 'You' : caller.claims.name}:` }),
-      says,
-    ]));
+    const who = { agent: 'You:', caller: `${caller.claims.name}:`, system: '»' }[line.from] ?? `${caller.claims.name}:`;
+    refs.transcript.append(el('div', { class: `line ${line.from} ${line.result ?? ''}` }, [el('span', { class: 'who', text: who }), says]));
 
     let n = 0;
     const tick = () => {
