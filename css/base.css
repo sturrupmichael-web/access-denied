@@ -1,0 +1,36 @@
+/* Base: reset, colour tokens, typography. Window chrome lives in desktop.css. */
+:root {
+  --desk: #008080;
+  --face: #c0c0c0;
+  --face-hi: #dfdfdf;
+  --light: #ffffff;
+  --shadow: #808080;
+  --dark: #000000;
+  --title: #000080;
+  --title-2: #1084d0;
+  --text: #000000;
+  --muted: #444444;
+  --field: #ffffff;
+  --ok: #0b6b0b;
+  --bad: #a00000;
+  --warn: #8a5a00;
+  --font: Tahoma, Verdana, "Segoe UI", Geneva, sans-serif;
+  --mono: "Lucida Console", "Courier New", monospace;
+}
+
+* { box-sizing: border-box; }
+
+html, body { margin: 0; height: 100%; }
+
+body {
+  font: 13px/1.4 var(--font);
+  color: var(--text);
+  background: var(--desk);
+  overflow: hidden;
+}
+
+button, input, select { font: inherit; color: inherit; }
+
+h1, h2, h3, p { margin: 0; }
+
+.hidden { display: none !important; }
