@@ -16,6 +16,7 @@
   --warn: #8a5a00;
   --font: Tahoma, Verdana, "Segoe UI", Geneva, sans-serif;
   --mono: "Lucida Console", "Courier New", monospace;
+  --taskbar-h: 34px; /* two rows on narrow phones, see the end of desktop.css */
 }
 
 * { box-sizing: border-box; }

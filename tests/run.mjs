@@ -2,7 +2,7 @@
 // Each test file exports `tests`: an array of [name, async fn]. Browser test files also
 // export `browser = true` and get a Playwright page (see tests/harness.mjs), once for each
 // of their `pages` (default: dev.html and, when it has been built, index.html;
-// `file:index.html` opens it from disk).
+// `file:index.html` opens it from disk), at their `viewport` (default 1366x768).
 
 import { readdirSync, existsSync } from 'node:fs';
 import { withPage } from './harness.mjs';
@@ -26,7 +26,7 @@ for (const file of readdirSync(new URL('.', import.meta.url)).filter((f) => f.en
     }
   };
   if (!mod.browser) await run(file)();
-  else for (const page of (mod.pages ?? ['dev.html', 'index.html']).filter((p) => existsSync(new URL(`../${p.replace(/^file:/, '').split('?')[0]}`, import.meta.url)))) await withPage(page, run(`${file} on ${page}`));
+  else for (const page of (mod.pages ?? ['dev.html', 'index.html']).filter((p) => existsSync(new URL(`../${p.replace(/^file:/, '').split('?')[0]}`, import.meta.url)))) await withPage(page, run(`${file} on ${page}`), mod.viewport);
 }
 console.log(`${passed} passed, ${failed} failed`);
 process.exit(failed ? 1 : 0);

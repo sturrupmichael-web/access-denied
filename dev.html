@@ -15,10 +15,14 @@
   <link rel="stylesheet" href="css/story.css">
 </head>
 <body>
-  <div class="desktop">
+  <div class="desktop" data-view="call">
     <main id="workspace" class="workspace"></main>
     <footer class="taskbar">
       <div class="taskbar-brand"><span class="brand-mark" aria-hidden="true">▣</span> HD ServiceDesk 95</div>
+      <nav class="window-btns" aria-label="Windows">
+        <button class="win-btn active" type="button" data-view="call" aria-pressed="true">☎ Line 1</button>
+        <button class="win-btn" type="button" data-view="tools" aria-pressed="false">🗂 Desk Tools</button>
+      </nav>
       <div id="meters" class="meters" aria-label="Meters"></div>
       <div class="taskbar-spacer"></div>
       <div id="queue" class="queue inset" aria-live="polite">Off shift</div>
