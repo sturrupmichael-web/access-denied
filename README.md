@@ -189,7 +189,7 @@ manual copy. (a) suits finished games that rarely change.
 3. **Deploy:** push to `main`, or run **Actions > Deploy > Run workflow**. A minute later
    the game is at <https://michaelsturrup.com/access-denied/>.
 4. **Add the card** to the main site, following its README: put a 1200×630 screenshot at
-   `images/access-denied.webp` (one is in the project files, made from the game), and add this entry at the top of `games.json`:
+   `images/access-denied.webp`, and add this entry at the top of `games.json`:
 
    ```json
    {
