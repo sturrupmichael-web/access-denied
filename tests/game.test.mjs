@@ -1,5 +1,5 @@
-// Plays the game in a real browser: the briefing, the desk tools, whole shifts, the clock
-// running out, and saving. Runs on dev.html, the built index.html over HTTP, and
+// Plays the game in a real browser: the title screen, the briefing, the desk tools, whole
+// shifts, the inbox, the clock running out, saving, settings and the endings. Runs on dev.html, the built index.html over HTTP, and
 // index.html opened straight from disk.
 
 import { assert } from './harness.mjs';
@@ -27,15 +27,26 @@ async function playCall(page, choice) {
   return page.textContent('.overlay .verdict-banner');
 }
 
-// Clicks the dialog's main button, then reads past any emails it leads to.
-async function next(page) {
-  await page.click('.overlay .btn.primary');
+// Reads past any inbox that's open.
+async function skipInbox(page) {
   while (await page.locator('.overlay .email').count()) await page.click('.overlay .btn.primary');
 }
 
+// Clicks the dialog's main button, then reads past any emails it leads to.
+async function next(page) {
+  await page.click('.overlay .btn.primary');
+  await skipInbox(page);
+}
+
 export const tests = [
-  ['boots to the briefing with no errors', async (page) => {
-    await page.waitForSelector('.overlay');
+  ['boots to the title screen, and New game opens the briefing, with no errors', async (page) => {
+    await page.waitForSelector('.title-window');
+    assert((await page.textContent('.title-window')).includes('ACCESS'), 'title screen shows the logo');
+    assert(!(await page.locator('text=Continue').count()), 'no Continue without a save');
+    await page.click('.title-window >> text=How to play');
+    assert((await page.textContent('.overlay >> nth=-1')).includes('Desk Tools'), 'how to play');
+    await page.click('text=Got it');
+    await page.click('.title-window >> text=New game');
     const text = await page.textContent('.overlay');
     assert(text.includes('Name and employee ID must match Active Directory'), 'briefing should list the Day 1 rule');
     assert(!page.errors.length, page.errors.join('\n'));
@@ -92,6 +103,8 @@ export const tests = [
     assert(/Calls handled8/.test(summary) && /Breaches allowed1/.test(summary) && /wrongly denied1/.test(summary), summary);
     assert((await page.textContent('.overlay')).includes('Security flagged'), 'breach note from Bev');
     await page.click('text=Start Day 2');
+    assert((await page.textContent('.overlay')).includes('offboarding'), 'Day 2 opens with a morning email');
+    await skipInbox(page);
     assert((await page.textContent('.overlay')).includes('The employee must be active in the HR Roster'), 'Day 2 briefing');
     assert(!page.errors.length, page.errors.join('\n'));
   }],
@@ -108,6 +121,7 @@ export const tests = [
     await page.click('.decide.escalate'); await page.waitForSelector('.overlay'); await next(page);
     await playCall(page); await next(page); // Priya
     await answer(page); // Gordon, the threat actor again
+    assert((await page.textContent('.transcript')).includes('Jon Whittaker said you sorted his password'), 'Gordon uses what Jon\'s mailbox leaked');
     await page.click('#tab-callerid');
     const cid = await page.textContent('#panel-callerid');
     assert(cid.includes('Jonathon Whitaker') && cid.includes('Marcus Bell'), cid);
@@ -115,10 +129,10 @@ export const tests = [
   ['the shift is saved and resumes after a reload', async (page) => {
     await page.reload();
     await page.waitForFunction(() => window.accessDenied && !document.getElementById('boot'));
-    const text = await page.textContent('.overlay');
+    const text = await page.textContent('.title-window');
     if (page.url().startsWith('file:') && !text.includes('partway')) return; // no storage on file://
     assert(text.includes('partway through Day 2: 6 calls done'), text);
-    await page.click('text=Continue');
+    await page.click('.title-window >> text=Continue');
     await next(page); // briefing: Back to work
     await answer(page);
     assert((await page.textContent('.intake')).includes('Gordon Fitch'), 'resumes at Gordon');
@@ -128,6 +142,8 @@ export const tests = [
     await page.waitForSelector('.overlay');
     await next(page);
     await page.evaluate(() => window.accessDenied.clock.advance(600));
+    await page.waitForSelector('.overlay');
+    await skipInbox(page);
     await page.waitForSelector('.overlay .stats');
     const summary = await page.textContent('.overlay .stats');
     assert(/at 17:003/.test(summary), summary);
@@ -138,6 +154,7 @@ export const tests = [
       document.getElementById('modal-root').replaceChildren();
       window.accessDenied.shift.begin(4);
     });
+    await skipInbox(page); // Security's morning note about the 0199 caller
     assert((await page.textContent('.overlay')).includes('need a callback'), 'Day 4 briefing');
     await next(page);
     await answer(page); // Aisha
@@ -158,7 +175,7 @@ export const tests = [
     await page.reload();
     await page.waitForFunction(() => window.accessDenied && !document.getElementById('boot'));
     if (page.url().startsWith('file:') && !(await page.textContent('.overlay')).includes('partway')) return; // no storage on file://
-    await page.click('text=Continue');
+    await page.click('.title-window >> text=Continue');
     await next(page);
     await playCall(page); await next(page); // Rick's reset
     await answer(page); // fake Dale
@@ -171,11 +188,43 @@ export const tests = [
     assert((await page.textContent('.overlay')).includes('Orientation'), 'New game starts Day 1');
     assert((await page.evaluate(() => window.accessDenied.meters.current().breach)) === 0, 'meters reset');
   }],
-  ['mute is saved under the accessDenied: prefix', async (page) => {
+  ['mute and settings are saved under the accessDenied: prefix, and Settings pauses the clock', async (page) => {
     await page.click('#mute-btn');
     const saved = await page.evaluate(() => localStorage.getItem('accessDenied:muted'));
     // Some browsers give file:// pages no localStorage; the game must still run there.
     assert(saved === 'true' || page.url().startsWith('file:'), `saved: ${saved}`);
+    await next(page); // Clock in
+    await page.click('#settings-btn');
+    assert(!(await page.isChecked('#setting-sound')), 'Settings shows sound off after muting');
+    assert(!(await page.evaluate(() => window.accessDenied.clock.isRunning())), 'clock paused in Settings');
+    await page.selectOption('.settings select >> nth=0', 'instant');
+    await page.uncheck('#setting-motion');
+    assert(await page.evaluate(() => document.body.classList.contains('no-motion')), 'Animations off');
+    await page.click('.settings-window >> text=Done');
+    assert(await page.evaluate(() => window.accessDenied.clock.isRunning()), 'clock runs again');
+    const settings = await page.evaluate(() => localStorage.getItem('accessDenied:settings'));
+    assert(page.url().startsWith('file:') || JSON.parse(settings).textSpeed === 'instant', `settings: ${settings}`);
+    await page.click('.answer');
+    await page.waitForSelector('.decide.approve:not([disabled])', { timeout: 2000 }); // instant text
+  }],
+  ['after the last day, Finish the week shows the final ending', async (page) => {
+    await page.evaluate(() => {
+      document.getElementById('modal-root').replaceChildren();
+      window.accessDenied.shift.begin(5);
+    });
+    await skipInbox(page);
+    await next(page); // Clock in
+    await playCall(page); await next(page);
+    await page.evaluate(() => window.accessDenied.clock.advance(600));
+    await page.waitForSelector('.overlay');
+    await skipInbox(page);
+    await page.click('text=Finish the week');
+    await page.waitForSelector('.ending-heading');
+    const text = await page.textContent('.overlay');
+    assert(/promoted|made it to Friday/.test(text) && text.includes('THE END'), text);
+    await page.click('text=New game');
+    assert((await page.textContent('.overlay')).includes('Orientation'), 'New game starts Day 1');
+    assert(!page.errors.length, page.errors.join('\n'));
   }],
 ];
 

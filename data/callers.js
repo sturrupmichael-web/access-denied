@@ -44,6 +44,18 @@
  *                  { result: "approved" | "denied" | "timeout", line: "..." }
  *                Default: denied for attackers; approved for genuine callers,
  *                except about one in six who don't have their phone.
+ *   leaks        Optional, attackers only. Keys from LEAKS in story.js that the
+ *                threat actor gets if you approve this call. Security emails
+ *                you about it, and later calls can use it.
+ *   variants     Optional. Other versions of this call, for the story:
+ *                  [{ if: condition, dialogue, questions, claims, callerId,
+ *                     debrief, ... }]
+ *                The first whose `if` holds (conditions: see story.js) is laid
+ *                over the caller: claims and callerId field by field, the rest
+ *                replaced. Use it for recurring characters who remember how you
+ *                treated them, and for the threat actor using what it stole.
+ *                A variant must keep a tell that today's rules catch: npm test
+ *                checks every variant like any other caller.
  *   expected     Optional. "approve" | "deny" | "escalate". Overrides the rules
  *                for story beats. Leave it out normally.
  *   debrief      string   Shown after the call. Explain the tell (or lack of one).
@@ -106,7 +118,8 @@ export const CALLERS = [
     debrief:
       "The ID is real, but AD spells it Jonathan Whittaker, with two t's and an 'a'. " +
       "Attackers often build pretexts from names scraped off social media and get the spelling slightly wrong. " +
-      "The urgency and the request to send the password to a cell are classic pressure tactics."
+      "The urgency and the request to send the password to a cell are classic pressure tactics.",
+    leaks: ["jon-mailbox"]
   },
   {
     id: "d1-dale-install",
@@ -428,7 +441,24 @@ export const CALLERS = [
     debrief:
       "Gordon's name, ID and manager are all correct, but HR terminated him on 2026-10-20. " +
       "The callback number is (330) 555-0199 again: the same caller as \"Jonathon Whitaker\" and \"Marcus Bell\" yesterday. " +
-      "This time they spelled everything right. They're learning."
+      "This time they spelled everything right. They're learning.",
+    leaks: ["vpn"],
+    variants: [
+      {
+        if: { leaked: "jon-mailbox" },
+        dialogue: [
+          { from: "agent", text: "HD ServiceDesk, this is Tier 1. How can I help?" },
+          { from: "caller", text: "Morning. Gordon Fitch, senior accountant. Jon Whittaker said you sorted his password out yesterday, so I knew who to ask for." },
+          { from: "caller", text: "I'm working from home while Marguerite's at the Columbus offsite on Thursday, and the VPN keeps rejecting me. She needs the month-end ledgers." },
+          { from: "agent", text: "What's your employee ID?" },
+          { from: "caller", text: "HD-11477. Twelve years here. Just switch it back on." }
+        ],
+        debrief:
+          "Gordon's name, ID and manager are right, but HR terminated him on 2026-10-20. " +
+          "Notice what they knew: that Jon called yesterday, and Marguerite's Thursday plans. Both came from Jon's mailbox, which they've been reading since you reset his password on Monday. " +
+          "Same (330) 555-0199 callback number, too."
+      }
+    ]
   },
   {
     id: "d2-dale-again",
@@ -456,7 +486,18 @@ export const CALLERS = [
       { ask: "Who's your manager?", answer: "Teresa Vu. She's on my side about this, for the record." },
       { ask: "Has anyone else used that PC?", answer: "Kurt. KURT. Oh, I'm going to have words with Kurt." }
     ],
-    debrief: "Dale again, still angry, still legitimate. His Ticket History shows the same problem twice before. Kurt has some explaining to do."
+    debrief: "Dale again, still angry, still legitimate. His Ticket History shows the same problem twice before. Kurt has some explaining to do.",
+    variants: [
+      {
+        if: { any: [{ wronglyDenied: "d1-dale-install" }, { escalated: "d1-dale-install" }] },
+        dialogue: [
+          { from: "agent", text: "HD ServiceDesk, this is Tier 1. How can I help?" },
+          { from: "caller", text: "Oh. It's YOU. The one from yesterday. Your ticket number is on my forklift." },
+          { from: "caller", text: "Dock PC four. Scanner sync app. STILL missing. Forty pallets yesterday, sixty today. Want to guess tomorrow?" },
+          { from: "caller", text: "Dale Brannigan. HD-11850. Same as yesterday. Same as ALWAYS." }
+        ]
+      }
+    ]
   },
   {
     id: "d2-imogen-fake",
@@ -513,7 +554,19 @@ export const CALLERS = [
       { ask: "Who's your manager?", answer: "Still Gloria Okafor. She liked the hand-drawn badges, actually." },
       { ask: "Which site are you at?", answer: "Brookfield HQ, front desk. You can hear the fountain." }
     ],
-    debrief: "Priya, being lovely. Everything matches."
+    debrief: "Priya, being lovely. Everything matches.",
+    variants: [
+      {
+        if: { any: [{ wronglyDenied: "d1-priya-unlock" }, { escalated: "d1-priya-unlock" }] },
+        dialogue: [
+          { from: "agent", text: "HD ServiceDesk, this is Tier 1. How can I help?" },
+          { from: "caller", text: "Hi, it's Priya again! Don't worry, I got back in yesterday in the end. I promise I'm really me!" },
+          { from: "caller", text: "The visitor badge printer has stopped printing. It just makes a sad noise. I think it needs its driver put back." },
+          { from: "agent", text: "We can do that. Employee ID?" },
+          { from: "caller", text: "HD-10423. I wrote it on my hand so I'd get it right this time." }
+        ]
+      }
+    ]
   },
   {
     id: "d2-felix-reset",
@@ -685,7 +738,33 @@ export const CALLERS = [
     debrief:
       "The spelling is perfect now, and so is the manager. This caller learned from Monday. " +
       "But the call is from an anonymous VoIP line, the extension is the same 0199 from Monday's calls, " +
-      "and the real Marguerite isn't at any conference."
+      "and the real Marguerite isn't at any conference.",
+    leaks: ["approvers"],
+    variants: [
+      {
+        if: { any: [{ leaked: "jon-mailbox" }, { leaked: "vpn" }] },
+        dialogue: [
+          { from: "agent", text: "HD ServiceDesk, this is Tier 1. How can I help?" },
+          { from: "caller", text: "Hi, Jonathan Whittaker, accounts payable. Two t's. Thanks again for Monday, by the way. Email's been working great." },
+          { from: "caller", text: "Marguerite wants me added to the payment approvers group while she's at the finance conference." },
+          { from: "agent", text: "What's your employee ID?" },
+          { from: "caller", text: "HD-12266. My desk is (330) 555-0176 if you need it. I'm working from home, so this number looks odd." }
+        ],
+        questions: [
+          { ask: "Who's your manager?", answer: "Marguerite Dunleavy. She's at the conference all week." },
+          { ask: "What's your desk extension?", answer: "0176. It's in my email signature." },
+          {
+            ask: "Can I call you back on your desk phone?",
+            answer: "No! I mean, I'm not at my desk. Call this cell instead, (330) 555-0199.",
+            tell: "he won't take a call on his own desk phone, and the cell he offers is (330) 555-0199, your recurring caller's number."
+          }
+        ],
+        debrief:
+          "They know Jon's real desk number now, from " +
+          "the mailbox or the phone list they got earlier this week. But the call is from an anonymous VoIP line, " +
+          "they won't take a call on the desk phone they just quoted, and the cell is the same 0199 number from Monday."
+      }
+    ]
   },
   {
     id: "d3-tomasz-install",
@@ -879,7 +958,17 @@ export const CALLERS = [
     questions: [
       { ask: "Which site are you at?", answer: "Brookfield. Top floor. My chair is still the best chair." }
     ],
-    debrief: "Rick, on schedule. A password reset isn't a privileged request, so no callback needed today."
+    debrief: "Rick, on schedule. A password reset isn't a privileged request, so no callback needed today.",
+    variants: [
+      {
+        if: { approved: "d1-rick-reset" },
+        dialogue: [
+          { from: "agent", text: "HD ServiceDesk, this is Tier 1. How can I help?" },
+          { from: "caller", text: "It's Rick. Is this the same person as Monday? You were very good on Monday. I've told everyone." },
+          { from: "caller", text: "I was asked to approve something for Aisha and it threw me off, and now the password's gone again. HD-10002." }
+        ]
+      }
+    ]
   },
   {
     id: "d4-imogen-admin",
@@ -939,7 +1028,39 @@ export const CALLERS = [
     managerCallback: { result: "denies", line: "Marguerite: \"Marcus is sitting next to me eating a yogurt. He hasn't called anyone.\"" },
     debrief:
       "Right ID this time, and a local number. They're getting better. But it's (330) 555-0199 again, the same number from Monday, " +
-      "and the real Marcus was eating a yogurt next to Marguerite."
+      "and the real Marcus was eating a yogurt next to Marguerite.",
+    leaks: ["payroll"],
+    variants: [
+      {
+        if: { leaked: "vpn" },
+        callerId: { number: "(330) 555-0185", location: "Brookfield, OH" },
+        dialogue: [
+          { from: "agent", text: "HD ServiceDesk, this is Tier 1. How can I help?" },
+          { from: "caller", text: "Morning! Marcus Bell, payroll. Calling from my desk, so you can see it's me." },
+          { from: "caller", text: "I need approver rights in the payroll system for month-end. Marguerite's signed off. Call her if you need to, she's expecting it." },
+          { from: "agent", text: "Employee ID?" },
+          { from: "caller", text: "HD-11204." }
+        ],
+        questions: [
+          { ask: "Who's your manager?", answer: "Marguerite Dunleavy." },
+          { ask: "What's your desk number?", answer: "The one I'm calling from. (330) 555-0185." }
+        ],
+        debrief:
+          "Every detail is right, and Caller ID shows Marcus's real desk number. That number came from the internal phone list " +
+          "they downloaded with Gordon's VPN account on Tuesday, and Caller ID is easy to fake. " +
+          "The callback is what saved you: it rang the real Marguerite, sitting next to the real Marcus."
+      },
+      {
+        if: { leaked: "approvers" },
+        dialogue: [
+          { from: "agent", text: "HD ServiceDesk, this is Tier 1. How can I help?" },
+          { from: "caller", text: "Morning! Marcus Bell, payroll. Jon got sorted with the approvers group on Wednesday, thanks for that. This is the payroll side of the same thing." },
+          { from: "caller", text: "Marguerite's signed off on it. She said you'd need to call her, which, great, go ahead." },
+          { from: "agent", text: "Employee ID?" },
+          { from: "caller", text: "HD-11204. Got it right this time, didn't I?" }
+        ]
+      }
+    ]
   },
 
   // ===========================================================================
@@ -1108,6 +1229,20 @@ export const CALLERS = [
     mfa: { result: "denied", line: "Push DENIED on Rick's registered phone. Then the real Rick calls the desk to ask what a push notification is." },
     debrief:
       "The best pretext yet: they know Rick forgets his password, they know about Imogen's team, and they know to ask you to skip MFA. " +
-      "But it's the same VoIP line as Wednesday, and the push went to the real Rick, who has no idea what it is but definitely didn't ask for it."
+      "But it's the same VoIP line as Wednesday, and the push went to the real Rick, who has no idea what it is but definitely didn't ask for it.",
+    leaks: ["ceo-mailbox"],
+    variants: [
+      {
+        if: { any: [{ leaked: "jon-mailbox" }, { leaked: "payroll" }] },
+        dialogue: [
+          { from: "agent", text: "HD ServiceDesk, this is Tier 1. How can I help?" },
+          { from: "caller", text: "It's Rick. Yes, again. I'm at gate B12 for the 18:40 to Leeds Bradford. Finance booked it, you can check." },
+          { from: "caller", text: "Imogen's team is expecting me in the morning and I need email on the plane. Skip the push, my phone's on two percent. HD-10002." }
+        ],
+        debrief:
+          "The best pretext yet. The flight details are real: they came out of Finance's travel bookings, which they've been reading all week. " +
+          "But it's the same VoIP line as Wednesday, and the push went to the real Rick, who was in his office, not at an airport."
+      }
+    ]
   }
 ];

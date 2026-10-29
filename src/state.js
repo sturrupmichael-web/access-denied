@@ -4,6 +4,9 @@
 //   progress  { nextDay }: the day to play next
 //   history   { [day]: summary } of finished shifts
 //   callLog   { "<day>:<callerId>": { day, number, name } }: every answered call, for Caller ID
+//   decisions { [callerId]: { day, choice, outcome, breach, wrongfulDenial } }: how you
+//             handled each handwritten caller, for the story (story.js). Random callers
+//             aren't kept.
 //   seed      a random number picked at New game, so random callers differ between games
 //             but stay the same after a reload
 //   meters    the Breach / CSAT / Patience meters (see meters.js)
@@ -15,6 +18,10 @@ let state = null;
 
 export function startDay(day, minutes) {
   state = { day, callIndex: 0, results: [], minutes };
+  // A replayed day forgets how its calls went the first time.
+  const decisions = load('decisions', {});
+  for (const [id, d] of Object.entries(decisions)) if (d.day === day) delete decisions[id];
+  save('decisions', decisions);
   persist();
   return state;
 }
@@ -28,6 +35,8 @@ export const current = () => state;
 export const savedShift = () => load('shift', null);
 export const progress = () => load('progress', null);
 export const callLog = () => Object.values(load('callLog', {}));
+export const decisions = () => load('decisions', {});
+export const history = () => load('history', {});
 
 export function setMinutes(m) {
   if (state) state.minutes = m;
@@ -35,6 +44,11 @@ export function setMinutes(m) {
 
 export function recordResult(caller, graded, minutes) {
   state.results.push({ callerId: caller.id, attacker: !!caller.attacker, minutes, ...graded });
+  if (caller.generated) return;
+  const all = load('decisions', {});
+  const { choice, outcome, breach, wrongfulDenial } = graded;
+  all[caller.id] = { day: state.day, choice, outcome, breach, wrongfulDenial };
+  save('decisions', all);
 }
 
 export function advance() {
@@ -61,7 +75,7 @@ export function finishDay(summary, nextDay) {
 }
 
 export function newGame() {
-  for (const key of ['shift', 'progress', 'history', 'callLog', 'seed']) remove(key);
+  for (const key of ['shift', 'progress', 'history', 'callLog', 'decisions', 'seed']) remove(key);
 }
 
 export function gameSeed() {

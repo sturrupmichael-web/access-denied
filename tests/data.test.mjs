@@ -9,6 +9,8 @@ import { generateCallers, clearGenerated } from '../src/generator.js';
 import { CALLERS } from '../data/callers.js';
 import { DAYS } from '../data/days.js';
 import { DIRECTORY } from '../data/directory.js';
+import * as story from '../src/story.js';
+import { save, remove } from '../src/storage.js';
 
 // A careful agent's verdict: every question asked, every unlocked action used.
 const ideal = (c, day) => evaluate(c, day, idealActions(c, activeRules(day)));
@@ -88,5 +90,43 @@ export const tests = [
     assert(grade('approve', c, v).breach, 'approve should be a breach');
     const g = grade('escalate', c, v);
     assert(g.outcome === 'escalated' && !g.breach, JSON.stringify(g));
+  }],
+  ['every story variant of a caller is still fair on its day', async () => {
+    let checked = 0;
+    for (const c of CALLERS.filter((x) => x.variants)) {
+      const day = DAYS.find((d) => d.callers.includes(c.id))?.day;
+      assert(day, `${c.id} has variants but isn't on any day`);
+      for (const v of c.variants) {
+        const { if: _cond, claims, callerId, ...rest } = v;
+        assertFair({ ...c, ...rest, claims: { ...c.claims, ...claims }, callerId: { ...c.callerId, ...callerId } }, day);
+        checked += 1;
+      }
+    }
+    assert(checked >= 8, `only ${checked} variants checked`);
+  }],
+  ['approving the threat actor leaks details that later calls and emails use', async () => {
+    remove('decisions');
+    const gordon = caller('d2-gordon-vpn');
+    assert(story.applyVariant(gordon) === gordon, 'no leak: the plain call');
+    assert(!story.emailsFor(1, 'end').some((e) => e.id === 'd1-security-jon'), 'no leak: no Security email');
+    save('decisions', { 'd1-whitacre-reset': { day: 1, choice: 'approve', outcome: 'wrong', breach: true } });
+    assert(story.leaks().includes('jon-mailbox'), 'the leak is recorded');
+    assert(story.applyVariant(gordon).dialogue[1].text.includes('Jon Whittaker'), 'Gordon knows about Jon');
+    assert(story.emailsFor(1, 'end').some((e) => e.id === 'd1-security-jon'), 'Security emails about it');
+    save('decisions', { 'd2-gordon-vpn': { day: 2, choice: 'approve', outcome: 'wrong', breach: true } });
+    assert(story.applyVariant(caller('d4-marcus-admin')).callerId.number === '(330) 555-0185', 'the phone list lets them spoof Marcus');
+    remove('decisions');
+  }],
+  ['emails follow how you treated people, and the finale follows the week', async () => {
+    save('decisions', { 'd1-dale-install': { day: 1, choice: 'deny', outcome: 'wrong', wrongfulDenial: true } });
+    const ids = story.emailsFor(1, 'end', { escalated: 0 }).map((e) => e.id);
+    assert(ids.includes('d1-dale-angry') && !ids.includes('d1-dale-happy') && !ids.includes('d1-raj'), ids.join());
+    assert(story.emailsFor(1, 'end', { escalated: 5 }).some((e) => e.id === 'd1-raj'), 'Raj counts escalations');
+    remove('decisions');
+    save('history', { 1: { handled: 8, correct: 8, breaches: 0, wrongfulDenials: 0, csat: 90 } });
+    assert(story.finale().heading.includes('promoted'), 'a clean week is a promotion');
+    save('history', { 1: { handled: 8, correct: 4, breaches: 3, wrongfulDenials: 0, csat: 60 } });
+    assert(story.finale().heading.includes('Friday'), 'three breaches is no promotion');
+    remove('history');
   }],
 ];

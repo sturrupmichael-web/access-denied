@@ -7,9 +7,11 @@ import { COMPANY } from '../../data/company.js';
 import { el, createWindow } from './desktop.js';
 import * as stamp from './stamp.js';
 import * as audio from '../audio.js';
+import * as settings from '../settings.js';
 
-const TYPE_MS = 16; // per character
 const LINE_PAUSE_MS = 350; // between lines, unless a line sets `pause`
+const RING_EVERY_MS = 3000; // the phone rings again until it's answered
+const typeMs = () => settings.TEXT_SPEEDS[settings.get().textSpeed] ?? 16; // per character
 
 const INTAKE_FIELDS = [
   ['name', 'Name', true],
@@ -29,6 +31,7 @@ let handlers = null; // see ring()
 let caller = null;
 let asked = new Set();
 let done = new Set(); // desk actions already used on this call
+let ringer = null; // interval that keeps the phone ringing
 
 const ACTIONS = {
   callback: { label: '☎ Call manager', busy: 'Calling the manager on file...' },
@@ -87,6 +90,11 @@ function setButtons(enabled) {
   if (!enabled) refs.menu.classList.add('hidden');
 }
 
+function stopRinging() {
+  clearInterval(ringer);
+  ringer = null;
+}
+
 function stopTyping() {
   if (typing) typing.dead = true;
   typing = null;
@@ -94,6 +102,7 @@ function stopTyping() {
 
 export function idle(message) {
   stopTyping();
+  stopRinging();
   handlers = null;
   caller = null;
   win.setTitle('Line 1 - Idle');
@@ -127,6 +136,7 @@ export function ring(next, callHandlers) {
   );
   answerBtn.focus();
   audio.play('ring');
+  ringer = setInterval(() => audio.play('ring'), RING_EVERY_MS);
 }
 
 // Shown in the status line when the clock runs out mid-call.
@@ -136,7 +146,8 @@ export function lastCall() {
 }
 
 function answer() {
-  audio.play('click');
+  stopRinging();
+  audio.play('pickup');
   win.setTitle('Line 1 - On call');
   refs.status.className = 'call-status';
   refs.status.replaceChildren(
@@ -186,7 +197,7 @@ function ask(q) {
 }
 
 function runAction(kind) {
-  audio.play('click');
+  audio.play(kind === 'callback' ? 'dial' : 'buzz');
   done.add(kind);
   setButtons(false);
   const outcome = handlers.onAction(kind);
@@ -209,13 +220,15 @@ function typeLines(lines, finished) {
     const line = lines[i++];
     const says = el('span', { class: 'says' });
     const who = { agent: 'You:', caller: `${caller.claims.name}:`, system: '»' }[line.from] ?? `${caller.claims.name}:`;
-    refs.transcript.append(el('div', { class: `line ${line.from} ${line.result ?? ''}` }, [el('span', { class: 'who', text: who }), says]));
+    const row = el('div', { class: `line ${line.from} ${line.result ?? ''} typing` }, [el('span', { class: 'who', text: who }), says]);
+    refs.transcript.append(row);
 
     let n = 0;
     const tick = () => {
       if (job.dead) return;
-      if (job.skip) {
+      if (job.skip || !typeMs()) {
         says.textContent = line.text;
+        row.classList.remove('typing');
         scrollDown();
         setTimeout(nextLine, 0);
         return;
@@ -224,8 +237,11 @@ function typeLines(lines, finished) {
       says.textContent = line.text.slice(0, n);
       if (n % 4 === 0) audio.play('key');
       scrollDown();
-      if (n < line.text.length) setTimeout(tick, TYPE_MS);
-      else setTimeout(nextLine, line.pause ?? LINE_PAUSE_MS);
+      if (n < line.text.length) setTimeout(tick, typeMs());
+      else {
+        row.classList.remove('typing');
+        setTimeout(nextLine, typeMs() ? line.pause ?? LINE_PAUSE_MS : 60);
+      }
     };
     tick();
   };
@@ -242,5 +258,9 @@ function decide(choice) {
   handlers = { ...handlers, onDecision: null };
   if (!onDecision) return;
   setButtons(false);
-  stamp.slam(refs.stampLayer, refs.intakeWrap, choice).then(() => onDecision(choice));
+  stopTyping();
+  stamp.slam(refs.stampLayer, refs.intakeWrap, choice).then(() => {
+    audio.play('hangup');
+    onDecision(choice);
+  });
 }

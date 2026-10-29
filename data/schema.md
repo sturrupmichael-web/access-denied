@@ -13,7 +13,8 @@ callers.js     the phone calls: what each caller claims, says, and really is
 days.js        the shifts: briefing, which rules switch on, the call queue
 meters.js      the Breach / CSAT / Patience meters: what moves them, and the emails and
                game overs when they cross a line
-endings.js     the game-over screens
+endings.js     the endings: game overs, and the finale after the last day
+story.js       the inbox emails, what the threat actor can steal, and the condition format
 pools.js       names, departments, lines and phone numbers for random callers
 ```
 
@@ -58,6 +59,35 @@ The **Caller ID** tab remembers every number that called and the name it gave, a
 days. Reusing an attacker's `callerId.number` on a later day lets an alert player link the
 calls. The recurring threat actor uses `(234) 555-0199` and the callback `(330) 555-0199`.
 
+## The story
+
+Three things make the week feel like one story. All of them use the same **conditions**,
+listed at the top of `story.js`: what you did with a caller (`approved`, `denied`,
+`escalated`, `wronglyDenied`, `answered`), what the threat actor holds (`leaked`), and
+totals for today, the week, or the meters.
+
+- **Emails** (`story.js` `EMAILS`): each has a `day`, `at: "start"` (before the briefing)
+  or `"end"` (after the last call, before the summary), and an optional `if`. Recurring
+  characters write about how you treated them: Priya brings pastries, Dale tapes your
+  ticket number to a forklift, Rick asks what his password was.
+- **Leaks**: an attacker caller can list `leaks: ["jon-mailbox"]`. Approve that call and
+  the threat actor has it: Security emails you that evening, and later calls use it.
+- **Variants** (`callers.js`): `variants: [{ if, dialogue, questions, claims, callerId,
+  debrief }]`. The first whose `if` holds replaces those parts of the call. The threat
+  actor's calls get more convincing with each leak (on Day 4, Gordon's stolen phone list
+  lets "Marcus" spoof Marcus's real desk number), and Dale and Priya remember being turned
+  away. A variant must keep a tell that day's rules catch; `npm test` checks every one.
+
+The threat actor's leaks, in order: Day 1 "Jonathon Whitaker" (Jon's mailbox), Day 2 Gordon
+(VPN and the phone list), Day 3 "Jonathan Whittaker" (the payment approvers group), Day 4
+"Marcus" (payroll), Day 5 "Rick" (the CEO's mailbox).
+
+**Endings** (`endings.js`): meter events end the game early with `reassigned` or `pip`.
+After the last day in `days.js`, the summary offers **Finish the week**, and the first
+`FINALE` entry whose `if` holds picks the ending: `promotion` for a good week, otherwise
+`survived`. Ending paragraphs can be `{ text, if }`, and `{leaks}` in the text lists what
+the threat actor got. Add days and the finale moves to the new last day by itself.
+
 ## Random callers
 
 Put `{ procedural: 2 }` in a day's `callers` list for two random callers at that point in
@@ -87,6 +117,8 @@ New game shuffles them. Add names, lines or phone numbers to `pools.js` for more
   `endings.js`. It can fire again only after the meter has gone back across the line.
 
 ## Adding content
+
+**A new email:** add it to `EMAILS` in `story.js` with a new `id` and a `day`.
 
 **A new caller:** copy one in `callers.js`, give it a new `id`, and add that id to a day's
 `callers` list in `days.js`. Use 555-01xx phone numbers, which are reserved as fictional.

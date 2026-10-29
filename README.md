@@ -7,10 +7,11 @@ against your desk tools, then Approve, Deny or Escalate.
 
 The company, the people and the numbers are made up. This is a personal project.
 
-**Status: Phase 3.** Five days, each adding a rule. Six desk tools, verification
-questions, manager callbacks and MFA pushes, the Breach / CSAT / Patience meters with their
-emails and game overs, random callers mixed in from Day 3, and saving. The story emails,
-endings, title screen and sound polish come in Phase 4.
+**Status: Phase 4.** A five-day week, each day adding a rule. Six desk tools, verification
+questions, manager callbacks and MFA pushes, the Breach / CSAT / Patience meters, random
+callers from Day 3, and saving. The story runs through the inbox: coworkers who remember how
+you treated them, and a threat actor who comes back every day using whatever you let slip
+earlier. The week ends in a promotion, or not. Title screen, settings, synthesized sound.
 
 ```
 dev.html          the page for development (loads src/ as ES modules)
@@ -20,6 +21,7 @@ data/             all the content: company, employees, rules, callers, days, met
 src/              the game: shift.js, clock.js, verdict.js, checks.js, actions.js (callback, MFA),
                   meters.js, generator.js (random callers), state.js (saving),
                   ui/ (windows, call, stamp, dialogs) and ui/tools/ (one file per desk tool)
+                  story.js (emails, leaks, caller variants, endings), settings.js, audio.js
 css/              the Windows 95-style look
 build.mjs         builds index.html
 tests/            npm test
@@ -42,7 +44,8 @@ it.
 
 ### How to play
 
-1. Read the morning briefing. It lists the verification rules in effect today, and they
+1. On the title screen, pick **New game** (or **Continue**). Check the inbox when it
+   opens. Then read the morning briefing. It lists the verification rules in effect today, and they
    stay in the **Policy** tab all shift. Click **Clock in**.
 2. The clock runs from 9:00 to 17:00 over about eight real minutes, and pauses while a
    dialog is open. The taskbar shows how many callers are waiting.
@@ -63,8 +66,9 @@ it.
 7. Stamp it: **Approve**, **Deny** or **Escalate**. Escalating is always safe, but it costs
    ten minutes and annoys Tier 2 when it wasn't needed. The call review explains what the
    checks found, who the caller really was, and how the meters moved.
-8. At 17:00, or when the queue is empty, the summary shows your calls, breaches, wrongful
-   denials, callers left waiting, CSAT, and a note from Bev. Then start the next day.
+8. At 17:00, or when the queue is empty, the evening inbox arrives, then the summary: your
+   calls, breaches, wrongful denials, callers left waiting, CSAT, and a note from Bev. Then
+   start the next day. After Day 5, **Finish the week** shows your ending.
 
 | Day | New rule |
 | --- | --- |
@@ -81,10 +85,18 @@ when real employees are turned away or kept waiting, and too low gets you a form
 **Patience** is Bev's: breaches, complaints and needless escalations wear it down, and at zero
 you're on a Performance Improvement Plan.
 
-The game saves after every call. Reload, and it offers to continue where you left off.
+**The story.** Priya, Dale and Rick call more than once, and they remember you. The caller
+who keeps using (330) 555-0199 comes back every day as someone else. Each call you approve
+for them hands over something real (a mailbox, the phone list, approver rights), Security
+emails you about it, and their next call uses it. Survive the week with at most one
+breach and Bev's patience intact, and you're promoted to Tier 2.
+
+The game saves after every call. Reload, and the title screen offers to continue.
 Saves use `localStorage` keys starting with `accessDenied:`, so they don't mix with other
-games on the site. The speaker icon in the taskbar mutes the sound. Add `?speed=10` to the
-address to run the clock ten times faster when testing.
+games on the site. The speaker icon in the taskbar mutes the sound, and the gear opens
+**Settings** (volume, text speed, shift length of 5, 8 or 12 minutes, and animations), which
+pauses the clock while it's open. Every sound is synthesized with Web Audio, so there are no
+sound files. Add `?speed=10` to the address to run the clock ten times faster when testing.
 
 ## Add content
 
@@ -96,8 +108,10 @@ call is judged, and each file lists its fields at the top.
 
 `npm test` checks the content files for broken references, checks that on its day every
 attacker is caught by a careful agent and no genuine caller is denied (for the handwritten
-callers and for random ones from 40 seeds a day), and plays through Days 1, 2 and 4, the
-tools, the desk actions, saving, the clock running out and a game over in headless Chromium on
+callers, every story variant, and random ones from 40 seeds a day), checks the emails,
+leaks and finale, and plays through the title screen, Days 1, 2, 4 and 5, the tools, the
+desk actions, the inbox, saving, settings, the clock running out, a game over and the final
+ending in headless Chromium on
 `dev.html`, on the built `index.html`, and on `index.html` opened from disk. Run
 `npm run build` first so the built page is tested too. `npm test -- node` skips the browser.
 

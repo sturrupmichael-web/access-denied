@@ -1,9 +1,11 @@
 // The shift clock, in game minutes since midnight. It runs from COMPANY.shift.start to
 // COMPANY.shift.end over COMPANY.shift.realSeconds, stops while the tab is hidden, and can
 // be pushed forward by actions that cost time (asking a question, escalating).
-// `?speed=10` in the address runs it ten times faster, for testing.
+// The Shift length setting scales it, and `?speed=10` in the address runs it ten times
+// faster, for testing.
 
 import { COMPANY } from '../data/company.js';
+import * as settings from './settings.js';
 
 const toMinutes = (hhmm) => {
   const [h, m] = hhmm.split(':').map(Number);
@@ -26,6 +28,7 @@ let endListener = null;
 export const format = (m) => `${String(Math.floor(m / 60)).padStart(2, '0')}:${String(Math.floor(m % 60)).padStart(2, '0')}`;
 export const now = () => minutes;
 export const isOver = () => ended;
+export const isRunning = () => running;
 
 export const onChange = (fn) => changeListeners.push(fn);
 export const onEnd = (fn) => { endListener = fn; };
@@ -45,7 +48,8 @@ function tick() {
   const t = performance.now();
   const dt = Math.min(1, (t - last) / 1000); // a stalled tab never jumps the clock
   last = t;
-  if (running && !document.hidden) advance(dt * RATE * SPEED);
+  const pace = settings.SHIFT_LENGTHS[settings.get().shiftLength] ?? 1;
+  if (running && !document.hidden) advance(dt * RATE * SPEED * pace);
 }
 
 export function start() {

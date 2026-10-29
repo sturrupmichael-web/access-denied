@@ -7,7 +7,27 @@ import { DIRECTORY } from '../data/directory.js';
 import { RULES } from '../data/rules.js';
 import { CALLERS } from '../data/callers.js';
 import { DAYS } from '../data/days.js';
+import { EMAILS, LEAKS } from '../data/story.js';
+import { ENDINGS, FINALE } from '../data/endings.js';
+import { METERS } from '../data/meters.js';
 import { CHECKS } from './checks.js';
+
+const CALLER_KEYS = ['approved', 'denied', 'escalated', 'wronglyDenied', 'answered'];
+const RANGE_KEYS = ['today', 'week', 'meters'];
+
+// Problems with one condition (see data/story.js): unknown keys, callers or leaks.
+function checkCondition(cond, where, callerIds, need) {
+  if (!cond) return;
+  for (const [k, v] of Object.entries(cond)) {
+    if (CALLER_KEYS.includes(k)) need(callerIds.has(v), `${where}: condition ${k} names unknown caller "${v}".`);
+    else if (k === 'leaked' || k === 'notLeaked') need(LEAKS[v], `${where}: condition ${k} names unknown leak "${v}".`);
+    else if (k === 'leakedAny') need(typeof v === 'boolean', `${where}: leakedAny must be true or false.`);
+    else if (RANGE_KEYS.includes(k)) need(v && typeof v === 'object', `${where}: ${k} needs { field: range }.`);
+    else if (k === 'any') for (const c of [].concat(v)) checkCondition(c, where, callerIds, need);
+    else if (k === 'not') checkCondition(v, where, callerIds, need);
+    else need(false, `${where}: unknown condition "${k}".`);
+  }
+}
 
 export function validateData() {
   const problems = [];
@@ -38,6 +58,35 @@ export function validateData() {
     if (c.managerCallback) need(['confirms', 'denies', 'unreachable'].includes(c.managerCallback.result), `callers: "${c.id}" managerCallback.result must be confirms, denies or unreachable.`);
     if (c.mfa) need(['approved', 'denied', 'timeout'].includes(c.mfa.result), `callers: "${c.id}" mfa.result must be approved, denied or timeout.`);
   }
+
+  for (const c of CALLERS) {
+    for (const key of c.leaks ?? []) need(LEAKS[key], `callers: "${c.id}" leaks unknown key "${key}".`);
+    for (const v of c.variants ?? []) {
+      need(v.if, `callers: "${c.id}" has a variant without an "if".`);
+      checkCondition(v.if, `callers: "${c.id}" variant`, callerIds, need);
+    }
+  }
+
+  const emailIds = new Set();
+  for (const e of EMAILS) {
+    need(!emailIds.has(e.id), `story: duplicate email id "${e.id}".`);
+    emailIds.add(e.id);
+    need(e.from && e.subject && e.body, `story: email "${e.id}" needs from, subject and body.`);
+    need(DAYS.some((d) => d.day === e.day), `story: email "${e.id}" is for day ${e.day}, which isn't in days.js.`);
+    need(!e.at || ['start', 'end'].includes(e.at), `story: email "${e.id}" has "at" other than start or end.`);
+    need(!(e.at === 'start' && e.if?.today), `story: email "${e.id}" uses "today" at the start of a shift.`);
+    checkCondition(e.if, `story: email "${e.id}"`, callerIds, need);
+  }
+
+  for (const [id, ending] of Object.entries(ENDINGS)) {
+    for (const p of ending.body ?? []) if (typeof p !== 'string') checkCondition(p.if, `endings: "${id}"`, callerIds, need);
+  }
+  for (const f of FINALE) {
+    need(ENDINGS[f.ending], `endings: FINALE names unknown ending "${f.ending}".`);
+    checkCondition(f.if, 'endings: FINALE', callerIds, need);
+  }
+  need(FINALE.length && !FINALE[FINALE.length - 1].if, 'endings: the last FINALE entry should have no "if".');
+  for (const ev of METERS.events) if (ev.ending) need(ENDINGS[ev.ending], `meters: event "${ev.id}" names unknown ending "${ev.ending}".`);
 
   const dayNumbers = new Set();
   for (const d of DAYS) {

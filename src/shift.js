@@ -1,11 +1,14 @@
-// Runs a shift: the briefing, the call queue against the clock, desk actions, the call
-// reviews, the meters and their events, and the end-of-shift summary. Saves after every
-// call so a reload picks up at the next one.
+// Runs a shift: the morning inbox and briefing, the call queue against the clock, desk
+// actions, the call reviews, the meters and their events, the evening inbox and the
+// end-of-shift summary, and the final ending after the last day. Saves after every call so
+// a reload picks up at the next one.
 
 import { DAYS } from '../data/days.js';
 import { CALLERS } from '../data/callers.js';
 import { COMPANY } from '../data/company.js';
 import { ENDINGS } from '../data/endings.js';
+import * as story from './story.js';
+import * as audio from './audio.js';
 import * as state from './state.js';
 import * as clock from './clock.js';
 import * as meters from './meters.js';
@@ -32,7 +35,7 @@ export const todaysQueue = () => queue;
 export const setGameOverHandler = (fn) => { onGameOver = fn; };
 
 clock.onChange((m) => {
-  setClock(clock.format(m));
+  setClock(clock.format(m), m >= clock.END - 30 && m < clock.END);
   state.setMinutes(m);
 });
 
@@ -53,7 +56,7 @@ function buildQueue() {
     if (typeof entry === 'string') {
       const caller = CALLERS.find((c) => c.id === entry);
       if (!caller) console.warn(`[Access Denied] Day ${day.day} lists unknown caller "${entry}". Skipping.`);
-      return caller ? [caller] : [];
+      return caller ? [story.applyVariant(caller)] : [];
     }
     batch += 1;
     return generateCallers(day.day, entry.procedural, seed + batch * 104729, rules)
@@ -84,10 +87,12 @@ export function begin(dayNumber, saved = null) {
   toolbox.setDay(day, rules);
   toolbox.selectById('ad');
   updateQueue();
-  screens.showBriefing(day, rules, queue.length, () => {
+  const brief = () => screens.showBriefing(day, rules, queue.length, () => {
     clock.start();
     nextCall();
   }, saved ? 'Back to work' : 'Clock in');
+  if (saved) brief();
+  else screens.showInbox(story.emailsFor(day.day, 'start'), brief);
 }
 
 function nextCall() {
@@ -147,22 +152,24 @@ function runEvents(events, next) {
   const ending = events.find((ev) => ev.effect === 'gameOver')?.ending;
   const sendHome = events.some((ev) => ev.effect === 'sendHome');
   const emails = events.filter((ev) => ev.email).map((ev) => ev.email);
-  const show = (i) => {
-    if (i < emails.length) return screens.showEmail(emails[i], () => show(i + 1));
+  screens.showInbox(emails, () => {
     if (ending) return gameOver(ending);
     return next(sendHome ? 'sendHome' : null);
-  };
-  show(0);
+  });
 }
 
-function gameOver(endingId) {
+// A meter ran out (endingId from data/meters.js), or the last day is over (finale: true).
+function gameOver(endingId, { finale = false } = {}) {
   clock.pause();
   active = null;
+  const ending = finale ? story.finale() : story.resolveEnding(ENDINGS[endingId] ?? ENDINGS.pip);
+  const recap = { ...story.week(), ...meters.current() };
   state.newGame();
   meters.reset();
-  call.idle('Your desk has been cleared.');
-  setQueue('Game over');
-  screens.showEnding(ENDINGS[endingId] ?? ENDINGS.pip, () => onGameOver());
+  call.idle(finale ? 'Week over. Your headset is yours to keep.' : 'Your desk has been cleared.');
+  setQueue(finale ? 'Week over' : 'Game over');
+  audio.play(ending.win ? 'fanfare' : 'gameover');
+  screens.showEnding(ending, recap, () => onGameOver());
 }
 
 function pickNote(s) {
@@ -181,15 +188,16 @@ function endShift({ sentHome = false } = {}) {
   state.finishDay(s, next ?? day.day);
   call.idle(sentHome ? 'Sent home. Security has your headset.' : 'Shift over. The phones are quiet.');
   setQueue('Off shift');
+  audio.play('shiftEnd');
   const { events } = meters.applyShiftEnd(s);
-  runEvents(events, () => {
+  const evening = story.emailsFor(day.day, 'end', s);
+  runEvents(events, () => screens.showInbox(evening, () => {
     const replay = { label: `Replay Day ${day.day}`, onClick: () => begin(day.day) };
     const buttons = next
       ? [replay, { label: `Start Day ${next}`, primary: true, onClick: () => begin(next) }]
-      : [{ ...replay, primary: true }];
+      : [replay, { label: 'Finish the week', primary: true, onClick: () => gameOver(null, { finale: true }) }];
     let note = pickNote(s);
     if (sentHome) note = `You were sent home early. ${note}`;
-    if (!next) note += "\n\nThat's every day written so far. More shifts are coming.";
     screens.showShiftEnd(day, s, note, buttons);
-  });
+  }));
 }

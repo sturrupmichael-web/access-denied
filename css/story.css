@@ -1,0 +1,102 @@
+/* Phase 4 polish: the title screen, settings, the inbox, the endings, and the small
+   animations. Everything that moves stops for prefers-reduced-motion or the Animations
+   setting (body.no-motion). */
+
+/* ===== Dialogs open with a quick zoom, like a window being restored ===== */
+.overlay { animation: fade-in 120ms ease-out; }
+.overlay .window.dialog { animation: pop-in 140ms ease-out; }
+@keyframes fade-in { from { background: rgba(0, 0, 0, 0); } }
+@keyframes pop-in { from { transform: scale(0.94); opacity: 0.4; } }
+
+/* ===== Title screen ===== */
+.window.title-window { width: min(460px, 100%); text-align: center; }
+.title-window .window-body { align-items: center; gap: 14px; padding: 18px 20px 14px; }
+.title-window .dialog-buttons { flex-direction: column; align-items: stretch; width: 220px; margin: 4px auto 0; }
+.logo { position: relative; padding: 6px 0 34px; }
+.logo-access {
+  font: 900 54px/1 Impact, "Arial Black", var(--font);
+  letter-spacing: 6px;
+  color: var(--title);
+  text-shadow: 2px 2px 0 var(--light), 4px 4px 0 var(--shadow);
+}
+.logo-stamp {
+  position: absolute;
+  left: 50%;
+  bottom: -4px;
+  font-size: 30px;
+  --tilt: -9deg;
+  --nudge: -40%;
+  animation: stamp-in 260ms cubic-bezier(0.2, 0.9, 0.3, 1.3) 500ms both;
+}
+.tagline { color: var(--muted); }
+.save-info { background: var(--field); padding: 6px 10px; width: 100%; }
+
+/* ===== Settings ===== */
+.window.settings-window { width: min(400px, 100%); }
+.settings { display: flex; flex-direction: column; gap: 10px; }
+.settings fieldset { display: flex; flex-direction: column; gap: 8px; }
+.setting { display: flex; align-items: center; justify-content: space-between; gap: 12px; }
+.setting.check { justify-content: flex-start; gap: 6px; }
+.setting select { min-width: 170px; background: var(--field); border: 2px inset var(--face-hi); }
+.setting input[type="range"] { width: 170px; }
+
+/* ===== Inbox ===== */
+.window.inbox-window { width: min(720px, 100%); }
+.inbox { display: grid; grid-template-columns: 220px 1fr; gap: 8px; min-height: 240px; max-height: 60vh; }
+.inbox.single { grid-template-columns: 1fr; }
+.inbox.single .inbox-list { display: none; }
+.inbox-list { list-style: none; margin: 0; padding: 2px; background: var(--field); overflow-y: auto; }
+.inbox-item {
+  display: flex;
+  flex-direction: column;
+  width: 100%;
+  text-align: left;
+  background: none;
+  border: 0;
+  padding: 4px 6px 4px 22px;
+  cursor: pointer;
+  position: relative;
+}
+.inbox-item::before { content: "✉"; position: absolute; left: 5px; top: 4px; opacity: 0.35; }
+.inbox-item.unread { font-weight: bold; }
+.inbox-item.unread::before { opacity: 1; }
+.inbox-item.selected { background: var(--title); color: var(--light); }
+.inbox-from { font-size: 11px; }
+.inbox-subject { white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.email-body { overflow-y: auto; background: var(--field); }
+
+/* ===== Endings ===== */
+.window.ending-window { width: min(600px, 100%); }
+.ending-top { position: relative; min-height: 60px; }
+.ending-stamp {
+  position: absolute;
+  right: 6px;
+  top: 8px;
+  font-size: 26px;
+  --tilt: 8deg;
+  animation: stamp-in 260ms cubic-bezier(0.2, 0.9, 0.3, 1.3) 400ms both;
+}
+.ending-window.win .ending-heading { color: var(--ok); }
+.ending-window.lose .ending-heading { color: var(--bad); }
+
+/* ===== Call window ===== */
+.call-status.ringing .answer { animation: wiggle 0.5s ease-in-out infinite; }
+@keyframes wiggle {
+  0%, 60%, 100% { transform: rotate(0); }
+  15% { transform: rotate(-4deg); }
+  30% { transform: rotate(4deg); }
+  45% { transform: rotate(-2deg); }
+}
+.line.typing .says::after { content: "▌"; animation: blink 0.6s steps(2, start) infinite; }
+
+/* ===== Taskbar ===== */
+.meter.flash .meter-bar { animation: meter-flash 0.6s ease-out 2; }
+@keyframes meter-flash { 50% { background: #ffd0d0; box-shadow: 0 0 0 2px var(--bad); } }
+.clock.late { color: var(--bad); font-weight: bold; }
+
+/* ===== Motion off ===== */
+body.no-motion *, body.no-motion *::before, body.no-motion *::after { animation: none !important; transition: none !important; }
+@media (prefers-reduced-motion: reduce) {
+  .overlay, .overlay .window.dialog, .logo-stamp, .ending-stamp, .call-status.ringing .answer,
+  .line.typing .says::after, .meter.flash .meter-bar { animation: none; }
+}
