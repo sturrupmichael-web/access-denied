@@ -390,11 +390,11 @@ legend { padding: 0 4px; }
 .meter-change { font-family: var(--mono); font-size: 12px; border-top: 1px dashed var(--shadow); padding-top: 6px; }
 .ending-heading { font-size: 20px; font-weight: bold; color: var(--bad); }
 
-/* One row of call buttons, even with both desk actions showing. */
-.actions { flex-wrap: nowrap; gap: 6px; }
-.actions .btn { min-width: 0; padding-left: 9px; padding-right: 9px; white-space: nowrap; }
+/* Call buttons keep their full labels. With three or more desk actions (week two) they
+   wrap onto a second row instead of squashing. */
+.actions { flex-wrap: wrap; gap: 6px; }
+.actions .btn { flex-shrink: 0; min-width: 0; padding-left: 9px; padding-right: 9px; white-space: nowrap; }
 .actions .decide { min-width: 88px; }
-@media (max-width: 900px) { .actions { flex-wrap: wrap; } }
 
 /* ===== Phones =====
    One window at a time, switched with the taskbar's window buttons (src/ui/desktop.js

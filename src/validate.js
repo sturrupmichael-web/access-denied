@@ -10,10 +10,24 @@ import { DAYS } from '../data/days.js';
 import { EMAILS, LEAKS } from '../data/story.js';
 import { ENDINGS, FINALE } from '../data/endings.js';
 import { METERS } from '../data/meters.js';
+import { GROUPS } from '../data/groups.js';
 import { CHECKS } from './checks.js';
+import { ACTIONS } from './actions.js';
 
 const CALLER_KEYS = ['approved', 'denied', 'escalated', 'wronglyDenied', 'answered'];
 const RANGE_KEYS = ['today', 'week', 'meters'];
+const CALLBACK_RESULTS = ['confirms', 'denies', 'unreachable'];
+
+// The extra intake fields each week-two request needs (see callers.js).
+const REQUEST_FIELDS = {
+  info_readback: ['subject'],
+  shared_access: ['group'],
+  leaver_access: ['subject', 'subjectId'],
+  remote_session: ['tool', 'device'],
+  lost_device: ['device', 'shipTo'],
+  vendor_change: ['vendor'],
+  account_extension: ['days'],
+};
 
 // Problems with one condition (see data/story.js): unknown keys, callers or leaks.
 function checkCondition(cond, where, callerIds, need) {
@@ -41,11 +55,23 @@ export function validateData() {
     need(!e.manager || employeeIds.has(e.manager), `directory: ${e.id} has unknown manager ${e.manager}.`);
     need(COMPANY.sites.some((s) => s.id === e.site), `directory: ${e.id} has unknown site ${e.site}.`);
     need(COMPANY.departments.includes(e.department), `directory: ${e.id} has unknown department ${e.department}.`);
+    need(!e.hr.handoverTo || employeeIds.has(e.hr.handoverTo), `directory: ${e.id} has unknown handoverTo ${e.hr.handoverTo}.`);
+    need(!e.hr.type || ['employee', 'contractor'].includes(e.hr.type), `directory: ${e.id} hr.type must be employee or contractor.`);
+  }
+  const tags = handmade.flatMap((e) => e.devices ?? []);
+  need(new Set(tags).size === tags.length, 'directory: two employees share a device asset tag.');
+
+  const groupNames = new Set();
+  for (const g of GROUPS) {
+    need(!groupNames.has(g.name.toLowerCase()), `groups: duplicate group "${g.name}".`);
+    groupNames.add(g.name.toLowerCase());
+    need(employeeIds.has(g.owner), `groups: "${g.name}" has unknown owner ${g.owner}.`);
+    need(['mailbox', 'list'].includes(g.kind), `groups: "${g.name}" kind must be mailbox or list.`);
   }
 
   for (const r of RULES) {
     for (const c of r.checks ?? []) need(CHECKS[c], `rules: "${r.id}" uses unknown check "${c}".`);
-    for (const a of r.actions ?? []) need(['callback', 'mfa'].includes(a), `rules: "${r.id}" has unknown action "${a}".`);
+    for (const a of r.actions ?? []) need(ACTIONS[a], `rules: "${r.id}" has unknown action "${a}".`);
   }
 
   const callerIds = new Set();
@@ -55,7 +81,10 @@ export function validateData() {
     need(c.claims && c.callerId, `callers: "${c.id}" needs claims and callerId.`);
     need(COMPANY.requestTypes[c.claims?.request], `callers: "${c.id}" has unknown request "${c.claims?.request}".`);
     for (const q of c.questions ?? []) need(q.ask && q.answer, `callers: "${c.id}" has a question without ask/answer.`);
-    if (c.managerCallback) need(['confirms', 'denies', 'unreachable'].includes(c.managerCallback.result), `callers: "${c.id}" managerCallback.result must be confirms, denies or unreachable.`);
+    for (const key of ['managerCallback', 'deskCallback', 'ownerCallback']) {
+      if (c[key]) need(CALLBACK_RESULTS.includes(c[key].result), `callers: "${c.id}" ${key}.result must be confirms, denies or unreachable.`);
+    }
+    for (const f of REQUEST_FIELDS[c.claims?.request] ?? []) need(c.claims[f] !== undefined && c.claims[f] !== '', `callers: "${c.id}" is a ${c.claims.request} call, so its claims need "${f}".`);
     if (c.mfa) need(['approved', 'denied', 'timeout'].includes(c.mfa.result), `callers: "${c.id}" mfa.result must be approved, denied or timeout.`);
   }
 

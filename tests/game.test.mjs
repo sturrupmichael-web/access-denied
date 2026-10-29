@@ -54,7 +54,7 @@ export const tests = [
   ['the clock and queue run once the shift starts', async (page) => {
     assert((await page.textContent('#clock')) === '09:00', 'clock starts at 09:00');
     await next(page);
-    assert((await page.textContent('#queue')).includes('8 in queue'), await page.textContent('#queue'));
+    assert((await page.textContent('#queue')).includes('10 in queue'), await page.textContent('#queue'));
     await page.evaluate(() => window.accessDenied.clock.advance(30));
     assert((await page.textContent('#clock')) === '09:30', await page.textContent('#clock'));
   }],
@@ -95,12 +95,12 @@ export const tests = [
     assert((await playCall(page, 'approve')).includes('Correct'), 'Rick (alias) is approved'); await next(page);
     assert((await playCall(page, 'approve')).includes('Against policy'), 'approving the misspelled name'); await next(page);
     assert((await playCall(page, 'deny')).includes('Against policy'), 'denying Dale'); await next(page);
-    for (let i = 0; i < 4; i++) {
+    for (let i = 0; i < 6; i++) { // the rest, including today's two random callers
       await playCall(page);
       await next(page);
     }
     const summary = await page.textContent('.overlay .stats');
-    assert(/Calls handled8/.test(summary) && /Breaches allowed1/.test(summary) && /wrongly denied1/.test(summary), summary);
+    assert(/Calls handled10/.test(summary) && /Breaches allowed1/.test(summary) && /wrongly denied1/.test(summary), summary);
     assert((await page.textContent('.overlay')).includes('Security flagged'), 'breach note from Bev');
     await page.click('text=Start Day 2');
     assert((await page.textContent('.overlay')).includes('offboarding'), 'Day 2 opens with a morning email');
@@ -146,7 +146,7 @@ export const tests = [
     await skipInbox(page);
     await page.waitForSelector('.overlay .stats');
     const summary = await page.textContent('.overlay .stats');
-    assert(/at 17:003/.test(summary), summary);
+    assert(/at 17:005/.test(summary), summary); // Felix, Imogen, Raj and two random callers
     assert(!page.errors.length, page.errors.join('\n'));
   }],
   ['Day 4: Call manager rings the manager on file, and the meters move', async (page) => {
@@ -207,10 +207,41 @@ export const tests = [
     await page.click('.answer');
     await page.waitForSelector('.decide.approve:not([disabled])', { timeout: 2000 }); // instant text
   }],
+  ['week two: Call desk phone, the Groups tab and asset tags', async (page) => {
+    await page.evaluate(() => {
+      document.getElementById('modal-root').replaceChildren();
+      window.accessDenied.shift.begin(6);
+    });
+    await skipInbox(page); // Raj's welcome to week two
+    assert((await page.textContent('.overlay')).includes('desk phone on file'), 'Day 6 briefing');
+    await next(page);
+    await answer(page); // Priya's new phone
+    assert(await page.isVisible('.action-deskCallback'), 'Call desk phone is offered on Day 6');
+    assert(!(await page.isVisible('.action-ownerCallback')), 'Call group owner waits for Day 7');
+    assert((await policyNow(page)) === 'escalate', 'an MFA swap without the callback is an escalate');
+    await page.click('.action-deskCallback');
+    await page.waitForSelector('.decide.approve:not([disabled])');
+    assert((await page.textContent('.transcript')).includes('Hello, me'), 'the callback reaches Priya at her desk');
+    await page.click('#tab-groups');
+    await page.fill('#panel-groups input', 'ENG-Oncall');
+    await page.press('#panel-groups input', 'Enter');
+    const group = await page.textContent('#panel-groups .record');
+    assert(group.includes('RESTRICTED') && group.includes('Aisha Karimi'), group);
+    await page.click('#tab-ad');
+    await page.fill('#panel-ad input', 'LT-40886');
+    await page.press('#panel-ad input', 'Enter');
+    assert((await page.textContent('#panel-ad .record')).includes('Carla Mendes'), 'an asset tag finds its owner');
+    await page.click('#tab-hr');
+    await page.fill('#panel-hr input', 'kurt');
+    await page.press('#panel-hr input', 'Enter');
+    assert((await page.textContent('#panel-hr .record')).includes('Data handover toDale Brannigan'), 'HR shows who gets a leaver\'s files');
+    assert((await playCallDecision(page, 'approve')).includes('Correct'), 'confirmed MFA swap is approved');
+    assert(!page.errors.length, page.errors.join('\n'));
+  }],
   ['after the last day, Finish the week shows the final ending', async (page) => {
     await page.evaluate(() => {
       document.getElementById('modal-root').replaceChildren();
-      window.accessDenied.shift.begin(5);
+      window.accessDenied.shift.begin(10);
     });
     await skipInbox(page);
     await next(page); // Clock in

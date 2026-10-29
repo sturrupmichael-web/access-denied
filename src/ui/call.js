@@ -13,6 +13,8 @@ const LINE_PAUSE_MS = 350; // between lines, unless a line sets `pause`
 const RING_EVERY_MS = 3000; // the phone rings again until it's answered
 const typeMs = () => settings.TEXT_SPEEDS[settings.get().textSpeed] ?? 16; // per character
 
+// [claims key, label, lookup]: lookup is true to search the open tool, or a tool id to
+// search that one.
 const INTAKE_FIELDS = [
   ['name', 'Name', true],
   ['employeeId', 'Employee ID', true],
@@ -21,6 +23,14 @@ const INTAKE_FIELDS = [
   ['manager', 'Manager', true],
   ['callback', 'Callback #'],
   ['request', 'Request'],
+  ['subject', 'About', true],
+  ['subjectId', 'About (ID)', true],
+  ['group', 'Group', 'groups'],
+  ['device', 'Asset tag', 'ad'],
+  ['tool', 'Remote tool'],
+  ['shipTo', 'Ship to'],
+  ['vendor', 'Vendor'],
+  ['days', 'Extension'],
   ['detail', 'Details'],
 ];
 
@@ -36,6 +46,8 @@ let ringer = null; // interval that keeps the phone ringing
 const ACTIONS = {
   callback: { label: '☎ Call manager', busy: 'Calling the manager on file...' },
   mfa: { label: '📱 MFA push', busy: 'Sending a push to the registered phone...' },
+  deskCallback: { label: '☎ Call desk phone', busy: 'Hanging up and ringing the desk phone on file...' },
+  ownerCallback: { label: '☎ Call group owner', busy: 'Ringing the group owner on file...' },
 };
 
 export function mount(container) {
@@ -119,7 +131,7 @@ export function idle(message) {
 //   onAnswer()       the player picked up
 //   onAsk(question)  the player asked one of caller.questions
 //   onAction(kind)   the player used a desk action; returns { result, line }
-//   onLookup(text)   the player clicked a name or ID on the intake
+//   onLookup(text, toolId)  the player clicked a name, ID, group or asset tag on the intake
 //   onDecision(choice)  the stamp has landed: 'approve' | 'deny' | 'escalate'
 export function ring(next, callHandlers) {
   idle('Phone is ringing...');
@@ -173,8 +185,9 @@ function renderIntake(claims) {
     let value = claims[key];
     if (value === undefined || value === '') continue;
     if (key === 'request') value = COMPANY.requestTypes[value]?.label ?? value;
+    if (key === 'days') value = `${value} days`;
     const content = lookup
-      ? el('button', { class: 'link', type: 'button', title: `Look up "${value}"`, text: value, onclick: () => handlers?.onLookup(value) })
+      ? el('button', { class: 'link', type: 'button', title: `Look up "${value}"`, text: value, onclick: () => handlers?.onLookup(value, lookup === true ? null : lookup) })
       : value;
     refs.intake.append(el('dt', { text: label }), el('dd', {}, content));
   }
@@ -198,7 +211,7 @@ function ask(q) {
 }
 
 function runAction(kind) {
-  audio.play(kind === 'callback' ? 'dial' : 'buzz');
+  audio.play(kind === 'mfa' ? 'buzz' : 'dial');
   done.add(kind);
   setButtons(false);
   const outcome = handlers.onAction(kind);

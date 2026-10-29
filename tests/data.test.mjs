@@ -5,12 +5,14 @@ import { assert } from './harness.mjs';
 import { validateData } from '../src/validate.js';
 import { evaluate, grade, activeRules } from '../src/verdict.js';
 import { idealActions } from '../src/actions.js';
-import { generateCallers, clearGenerated } from '../src/generator.js';
+import { generateCallers, generateStaff, clearGenerated } from '../src/generator.js';
 import { CALLERS } from '../data/callers.js';
 import { DAYS } from '../data/days.js';
 import { DIRECTORY } from '../data/directory.js';
 import * as story from '../src/story.js';
 import { save, remove } from '../src/storage.js';
+import * as state from '../src/state.js';
+import { COMPANY } from '../data/company.js';
 
 // A careful agent's verdict: every question asked, every unlocked action used.
 const ideal = (c, day) => evaluate(c, day, idealActions(c, activeRules(day)));
@@ -62,6 +64,101 @@ export const tests = [
     }
     clearGenerated();
     assert(!DIRECTORY.some((e) => e.generated), 'clearGenerated leaves no generated employees');
+  }],
+  ['week two: each new kind of call gets the verdict its story intends', async () => {
+    const intended = {
+      'd6-priya-mfa': 'approve', 'd6-yusuf-readback': 'approve', 'd6-marguerite-mfa-fake': 'deny', 'd6-rick-mfa': 'escalate', 'd6-mei-fake': 'deny',
+      'd7-dale-kurt': 'approve', 'd7-tomasz-oncall': 'approve', 'd7-gordon-mailbox-fake': 'deny', 'd7-imogen-nadia': 'escalate', 'd7-raj-fake': 'deny',
+      'd8-carla-remote': 'approve', 'd8-felix-laptop': 'approve', 'd8-tomasz-fake': 'deny', 'd8-wendy-laptop': 'approve', 'd8-hannah-laptop-fake': 'deny',
+      'd9-oksana-vendor': 'approve', 'd9-sven-extension': 'approve', 'd9-kyle-fake': 'deny', 'd9-lucia-fake': 'deny',
+      'd10-priya-list': 'approve', 'd10-marguerite-vendor-fake': 'deny', 'd10-rick-reset': 'approve',
+    };
+    for (const [id, want] of Object.entries(intended)) {
+      const c = caller(id);
+      const day = DAYS.find((d) => d.callers.includes(id)).day;
+      const v = ideal(c, day);
+      assert(v.correct === want, `${id}: expected ${want}, got ${v.correct} (${v.failures.map((f) => f.reason)})`);
+    }
+  }],
+  ['week two: every new rule catches its own tell, and needs its action', async () => {
+    const failsOn = (id, rule, actions) => {
+      const c = caller(id);
+      const day = DAYS.find((d) => d.callers.includes(id)).day;
+      const v = evaluate(c, day, actions ?? idealActions(c, activeRules(day)));
+      return v.failures.some((f) => f.rule.id === rule) ? v.correct : null;
+    };
+    assert(failsOn('d6-marguerite-mfa-fake', 'mfa-swap') === 'deny', 'desk callback says no');
+    assert(failsOn('d6-priya-mfa', 'mfa-swap', { deskCallback: null }) === 'escalate', 'no desk callback: escalate');
+    assert(failsOn('d6-mei-fake', 'no-readback') === 'deny', 'readback from a number that is not their desk phone');
+    assert(failsOn('d7-raj-fake', 'group-owner') === 'deny', 'group owner says no');
+    assert(failsOn('d7-tomasz-oncall', 'group-owner', { ownerCallback: null }) === 'escalate', 'restricted group, no owner callback: escalate');
+    assert(failsOn('d7-gordon-mailbox-fake', 'leaver-data') === 'deny', 'HR handed the leaver to someone else');
+    assert(failsOn('d7-imogen-nadia', 'leaver-data') === 'escalate', 'their manager, but no HR handover');
+    assert(failsOn('d8-tomasz-fake', 'remote-tool') === 'deny', 'not HD Assist');
+    assert(failsOn('d8-hannah-laptop-fake', 'lost-device') === 'deny', 'replacement to a hotel');
+    assert(failsOn('d9-kyle-fake', 'vendor-change') === 'deny', 'not in AP-BankChanges');
+    assert(failsOn('d9-oksana-vendor', 'manager-callback', { callback: null }) === 'escalate', 'vendor changes are privileged');
+    assert(failsOn('d9-lucia-fake', 'hr-active') === 'deny', 'an ended contract is terminated');
+    const sven = caller('d9-sven-extension');
+    assert(evaluate({ ...sven, claims: { ...sven.claims, days: 180 } }, 9, { callback: 'confirms' }).correct === 'deny', 'more than 90 days');
+    const oksana = caller('d9-oksana-vendor');
+    assert(evaluate({ ...oksana, claims: { ...oksana.claims, request: 'account_extension', days: 30 } }, 9, { callback: 'confirms' }).correct === 'deny', 'employees are not contractors');
+    assert(evaluate(caller('d8-carla-remote'), 5).correct === 'approve', 'week-two rules are off in week one');
+  }],
+  ['the generator makes every new kind of call, genuine and attacker, and the attackers are caught by that call\'s rule', async () => {
+    const ruleFor = { mfa_swap: 'mfa-swap', info_readback: 'no-readback', shared_access: 'group-owner', leaver_access: 'leaver-data', remote_session: 'remote-tool', lost_device: 'lost-device', vendor_change: 'vendor-change', account_extension: 'contractor-extension' };
+    const seen = {};
+    for (const day of DAYS.filter((d) => d.day >= 6)) {
+      for (let seed = 1; seed <= 60; seed++) {
+        clearGenerated();
+        generateStaff(seed);
+        for (const c of generateCallers(day.day, 4, seed * 104729, activeRules(day.day))) {
+          assertFair(c, day.day);
+          const rule = ruleFor[c.claims.request];
+          if (!rule) continue;
+          const kind = `${c.claims.request}:${c.attacker ? 'attacker' : 'genuine'}`;
+          const v = ideal(c, day.day);
+          if (c.attacker && v.failures.some((f) => f.rule.id === rule)) seen[`${kind}:own-rule`] = true;
+          seen[kind] = true;
+        }
+      }
+    }
+    clearGenerated();
+    for (const request of Object.keys(ruleFor)) {
+      for (const k of ['genuine', 'attacker', 'attacker:own-rule']) assert(seen[`${request}:${k}`], `never generated ${request} ${k}`);
+    }
+  }],
+  ['every game has its own background staff and random callers, and a save keeps them', async () => {
+    clearGenerated();
+    const before = DIRECTORY.length;
+    const staff = generateStaff(11).map((e) => e.name);
+    assert(DIRECTORY.length === before + staff.length && staff.length >= 40, `staff: ${staff.length}`);
+    const people = DIRECTORY.map((e) => e.name.toLowerCase());
+    assert(new Set(people).size === people.length, 'no two employees share a name');
+    const ids = DIRECTORY.map((e) => e.id);
+    assert(new Set(ids).size === ids.length, 'no two employees share an ID');
+    const tags = DIRECTORY.flatMap((e) => e.devices ?? []);
+    assert(new Set(tags).size === tags.length, 'no two employees share an asset tag');
+    for (const e of DIRECTORY.filter((x) => x.generated)) {
+      assert(DIRECTORY.some((m) => m.id === e.manager) && COMPANY.sites.some((x) => x.id === e.site), `${e.id} has a real manager and site`);
+    }
+    clearGenerated();
+    assert(JSON.stringify(generateStaff(11).map((e) => e.name)) === JSON.stringify(staff), 'same seed, same staff');
+    clearGenerated();
+    const other = generateStaff(12).map((e) => e.name);
+    assert(other.filter((n) => staff.includes(n)).length < staff.length / 4, 'another seed, mostly other people');
+    clearGenerated();
+    const names = (seed) => generateCallers(1, 6, seed, activeRules(1)).map((c) => `${c.claims.name}|${c.dialogue.map((d) => d.text).join()}`);
+    const a = names(101);
+    clearGenerated();
+    assert(names(202).every((n) => !a.includes(n)), 'another seed, other callers with other lines');
+    clearGenerated();
+    state.newGame();
+    const first = state.gameSeed();
+    assert(state.gameSeed() === first, 'the seed stays put within a game');
+    state.newGame();
+    assert(state.gameSeed() !== first, 'New game picks a new seed');
+    state.newGame();
   }],
   ['Day 3: a Caller ID mismatch needs a question, and a wrong answer is a deny', async () => {
     const felix = caller('d3-felix-travel');

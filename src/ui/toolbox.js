@@ -9,9 +9,10 @@ import * as hrRoster from './tools/hrRoster.js';
 import * as orgChart from './tools/orgChart.js';
 import * as tickets from './tools/tickets.js';
 import * as callerId from './tools/callerId.js';
+import * as groups from './tools/groups.js';
 import * as policyBinder from './tools/policyBinder.js';
 
-const TOOLS = [adLookup, hrRoster, orgChart, tickets, callerId, policyBinder];
+const TOOLS = [adLookup, hrRoster, orgChart, tickets, groups, callerId, policyBinder];
 
 let tabs;
 let active = TOOLS[0];
@@ -46,10 +47,12 @@ export function select(tool, clicked = false) {
 
 export const selectById = (id) => select(TOOLS.find((t) => t.id === id) ?? TOOLS[0]);
 
-// Searches the active tool, or AD Lookup if the active tool has no search.
-export function searchFor(query) {
+// Searches the tool `toolId` if given, otherwise the active tool, or AD Lookup if the
+// active tool has no search (or is Groups, which only knows group names).
+export function searchFor(query, toolId = null) {
   showView('tools');
-  if (!active.search) select(adLookup);
+  if (toolId) selectById(toolId);
+  else if (!active.search || active === groups) select(adLookup);
   active.search(query);
 }
 

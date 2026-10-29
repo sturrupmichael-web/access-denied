@@ -46,7 +46,16 @@ export const LEAKS = {
   "vpn": "VPN access as Gordon Fitch, and the internal phone list",
   "approvers": "a seat in the payment approvers group",
   "payroll": "payroll approver rights",
-  "ceo-mailbox": "Rick Halvorsen's mailbox"
+  "ceo-mailbox": "Rick Halvorsen's mailbox",
+  "marguerite-mfa": "Marguerite Dunleavy's MFA, moved onto their phone",
+  "staff-details": "Marguerite's mobile number and travel calendar",
+  "gordon-mailbox": "Gordon Fitch's mailbox, with every supplier we pay",
+  "incident-mailbox": "a copy of Security's incident mailbox",
+  "remote-foothold": "a remote-control tool on an engineering laptop",
+  "laptop": "a brand-new company laptop, delivered to a hotel",
+  "vendor-bank": "Kessler Steel's bank details, pointed at their account",
+  "contractor-vpn": "a forgotten contractor's VPN account, extended for 90 days",
+  "payment-run": "a $2.4 million payment to Kessler Steel, redirected"
 };
 
 export const EMAILS = [
@@ -355,5 +364,165 @@ export const EMAILS = [
       "The real Rick has been on the phone to us all afternoon. Somebody with his new password read his email for two hours " +
       "and sent the board a very convincing message about an \"urgent acquisition\". Legal is involved. Bev is involved. Everyone is involved.",
     if: { leaked: "ceo-mailbox" }
+  },
+  /* ---------- Day 6 ---------- */
+  {
+    id: "d6-week-two",
+    day: 6,
+    at: "start",
+    from: "Raj Patel",
+    subject: "week two!!",
+    body:
+      "Welcome back. Bev says you're staying for the second week of probation, which means you get the weird calls now. " +
+      "The weird calls are my favourite. You'll see two new buttons on Line 1 this week, and a Groups tab on Thursday's... no, Tuesday's... " +
+      "on a day this week. I've lost track of days. I've been on call.\n\nRaj (Tier 2)"
+  },
+  {
+    id: "d6-priya",
+    day: 6,
+    from: "Priya Raman",
+    subject: "new phone works!!",
+    body:
+      "The authenticator is on my new phone and my nephew says I'm 'basically a hacker now'. I have changed my lock screen to a picture of the cinnamon buns. " +
+      "Thank you!\n\nPriya",
+    if: { approved: "d6-priya-mfa" }
+  },
+  {
+    id: "d6-security-mfa",
+    day: 6,
+    from: "Security Operations",
+    subject: "Marguerite's MFA",
+    body:
+      "The authenticator you moved this morning wasn't Marguerite's new phone. It was the 0199 caller's. They now get her MFA prompts, " +
+      "and she gets nothing. We've reset it, but we can't un-know that they had it.\n\nThis is what \"Call desk phone\" is for.",
+    if: { leaked: "marguerite-mfa" }
+  },
+  {
+    id: "d6-security-readback",
+    day: 6,
+    from: "Yusuf Adebayo",
+    subject: "Mei didn't call you",
+    body:
+      "Mei has been at her desk all day, which I know because she sits opposite me and eats very loud apples. " +
+      "Whoever you read Marguerite's mobile and calendar to, it wasn't her. Real Security staff call from their desks. All of us. Even me.\n\nYusuf",
+    if: { leaked: "staff-details" }
+  },
+  /* ---------- Day 7 ---------- */
+  {
+    id: "d7-groups-tab",
+    day: 7,
+    at: "start",
+    from: "IT Change Board",
+    subject: "New in Desk Tools: Groups",
+    body:
+      "From today, Desk Tools has a Groups tab listing every shared mailbox and distribution list, who owns it, and whether it's open or restricted. " +
+      "Please stop guessing who owns Finance-Payroll. It has always been Marguerite. It will always be Marguerite."
+  },
+  {
+    id: "d7-dale",
+    day: 7,
+    from: "Dale Brannigan",
+    subject: "SCHEDULES",
+    body: "Got Kurt's pick schedules. They were in a folder called NOT SCHEDULES. That tells you everything about Kurt.\n\nThank you.\n\nDale",
+    if: { approved: "d7-dale-kurt" }
+  },
+  {
+    id: "d7-security-gordon",
+    day: 7,
+    from: "Security Operations",
+    subject: "Gordon Fitch's mailbox",
+    body:
+      "Gordon's account was reopened for \"an hour\" this afternoon. In that hour someone exported his entire supplier list. " +
+      "HR had already handed his mailbox to Marguerite, and it says so on the HR Roster. Leavers stay left.",
+    if: { leaked: "gordon-mailbox" }
+  },
+  {
+    id: "d7-security-incidents",
+    day: 7,
+    from: "Yusuf Adebayo",
+    subject: "who is reading my mailbox",
+    body:
+      "Someone added \"Raj\" to Security-Incidents today. Raj didn't ask. I own that mailbox, and nobody called me. " +
+      "The 0199 caller has now read our notes about the 0199 caller. They know what we know. That's bad.\n\nYusuf",
+    if: { leaked: "incident-mailbox" }
+  },
+  /* ---------- Day 8 ---------- */
+  {
+    id: "d8-felix",
+    day: 8,
+    from: "Felix Ambrose",
+    subject: "Taxi update",
+    body:
+      "The taxi company found my laptop. It had been wiped, which they found very confusing. The new one was waiting at my desk in Leeds. " +
+      "I've attached a photo of me holding it. I have not attached the photo. I'm in a hurry.\n\nFelix",
+    if: { approved: "d8-felix-laptop" }
+  },
+  {
+    id: "d8-security-remote",
+    day: 8,
+    from: "Security Operations",
+    subject: "QuickSupportPro",
+    body:
+      "Tomasz's laptop has a remote tool on it called QuickSupportPro, and someone in Akron was connected to it for forty minutes. " +
+      "Tomasz never called. We've reimaged the laptop and Tomasz now has trust issues. HD Assist is the only remote tool. The only one.",
+    if: { leaked: "remote-foothold" }
+  },
+  {
+    id: "d8-security-laptop",
+    day: 8,
+    from: "Asset Management",
+    subject: "Laptop shipped to a hotel",
+    body:
+      "A new laptop went to Room 312 at the Airport Lodge this afternoon. The real Hannah Liu was at her desk, holding her old laptop, " +
+      "which was never stolen. Replacements go to the site or the HR address. We'd like our laptop back.",
+    if: { leaked: "laptop" }
+  },
+  /* ---------- Day 9 ---------- */
+  {
+    id: "d9-marguerite",
+    day: 9,
+    from: "Marguerite Dunleavy",
+    subject: "Thank you",
+    body: "You called me before changing Teesdale's details. Nobody calls me. I want you to know that I noticed.\n\nMarguerite",
+    if: { approved: "d9-oksana-vendor" }
+  },
+  {
+    id: "d9-security-vendor",
+    day: 9,
+    from: "Marguerite Dunleavy",
+    subject: "Kessler Steel",
+    body:
+      "Kessler Steel's bank details were changed today on the word of someone claiming to be Kyle, for a CFO we don't have. " +
+      "This afternoon's run paid them. It did not pay Kessler Steel. Kyle isn't in AP-BankChanges. Kyle can't even work the franking machine.\n\nMarguerite",
+    if: { leaked: "vendor-bank" }
+  },
+  {
+    id: "d9-security-lucia",
+    day: 9,
+    from: "Security Operations",
+    subject: "Lucia Marchetti",
+    body:
+      "Lucia's contract ended in August. Her VPN account didn't, and as of today it's good for another ninety days, for whoever has the password. " +
+      "We've shut it. The HR Roster said \"Contract ended\". Ended means ended.",
+    if: { leaked: "contractor-vpn" }
+  },
+  {
+    id: "d9-sven",
+    day: 9,
+    from: "Sven Olafsson",
+    subject: "tusen takk",
+    body: "My account lives! I have brought more cardamom buns. I have hidden two for you behind the monitor on desk 14. Tell no engineer.\n\nSven",
+    if: { approved: "d9-sven-extension" }
+  },
+  /* ---------- Day 10 ---------- */
+  {
+    id: "d10-morning",
+    day: 10,
+    at: "start",
+    from: "Bev Kowalczyk",
+    subject: "Last day",
+    body:
+      "Last day of probation. Whatever happens, you've lasted longer than the last three people in that chair. One of them left for a llama farm. " +
+      "Don't leave for a llama farm.\n\nBev"
   }
 ];

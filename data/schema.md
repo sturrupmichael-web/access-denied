@@ -8,6 +8,7 @@ fit together.
 ```
 company.js     sites, departments, request types, the employee ID format, shift timing
 directory.js   the real employees: what AD Lookup, HR Roster, Org Chart and Tickets show
+groups.js      shared mailboxes and distribution lists: the Groups tab, and who owns what
 rules.js       the verification policy: each rule and the checks behind it
 callers.js     the phone calls: what each caller claims, says, and really is
 days.js        the shifts: briefing, which rules switch on, the call queue
@@ -15,7 +16,8 @@ meters.js      the Breach / CSAT / Patience meters: what moves them, and the ema
                game overs when they cross a line
 endings.js     the endings: game overs, and the finale after the last day
 story.js       the inbox emails, what the threat actor can steal, and the condition format
-pools.js       names, departments, lines and phone numbers for random callers
+pools.js       names, departments, lines, jokes and phone numbers for random callers and
+               the background staff each game adds to the directory
 ```
 
 ## How a call is judged
@@ -26,7 +28,8 @@ You never write an answer key. When the player stamps a call:
    they stay on for every later day unless a day lists them in `removeRules`.
 2. Each rule runs its `checks` (small functions in `src/checks.js`) against the
    caller's `claims`, the `directory`, and what the player did on the call: which questions
-   they asked, and the results of Call manager and MFA push.
+   they asked, and the results of the desk actions (Call manager, MFA push, Call desk phone,
+   Call group owner).
 3. If no check fails, policy says **Approve**. If any fail, policy says the rule's `onFail`
    (`deny` beats `escalate` when several fail). A check can ask for a different answer for
    its own failure: in the HR rule, terminated means deny but on leave means escalate.
@@ -44,6 +47,10 @@ would catch with today's rules**:
 | Day 3 | a Caller ID that doesn't match the employee's site, with a `tell` on every question |
 | Day 4 | an admin request, with `managerCallback: { result: "denies" }` (the default for attackers) |
 | Day 5 | a password reset, with `mfa: { result: "denied" }` (the default for attackers) |
+| Day 6 | an MFA swap, with `deskCallback: { result: "denies" }` (the default for attackers); a readback from someone not in SEC-Operations, or not on their own desk phone |
+| Day 7 | a restricted group, with `ownerCallback: { result: "denies" }` (the default); a group that doesn't exist; a leaver whose files HR handed to someone else, or who wasn't the caller's report |
+| Day 8 | a remote tool that isn't HD Assist; an asset tag that isn't theirs; a replacement laptop shipped anywhere but their site or HR address |
+| Day 9 | a vendor change from someone not in AP-BankChanges; an extension for an employee, for more than 90 days, or for an ended contract |
 
 A careful agent asks every question and uses every action the day unlocks. `npm test`
 checks that a careful agent denies every attacker and doesn't deny any genuine caller
@@ -80,7 +87,11 @@ totals for today, the week, or the meters.
 
 The threat actor's leaks, in order: Day 1 "Jonathon Whitaker" (Jon's mailbox), Day 2 Gordon
 (VPN and the phone list), Day 3 "Jonathan Whittaker" (the payment approvers group), Day 4
-"Marcus" (payroll), Day 5 "Rick" (the CEO's mailbox).
+"Marcus" (payroll), Day 5 "Rick" (the CEO's mailbox). Week two: Day 6 "Marguerite" (her MFA)
+and "Mei" (Marguerite's mobile and calendar), Day 7 "Jon" (Gordon's mailbox) and "Raj" (the
+incident mailbox), Day 8 "Tomasz" (a remote tool) and "Hannah" (a laptop), Day 9 "Kyle" (a
+vendor's bank details) and "Lucia" (a forgotten contractor VPN), Day 10 "Marguerite" (the
+$2.4 million payment run, which uses the Day 6 leaks).
 
 **Endings** (`endings.js`): meter events end the game early with `reassigned` or `pip`.
 After the last day in `days.js`, the summary offers **Finish the week**, and the first
@@ -88,16 +99,32 @@ After the last day in `days.js`, the summary offers **Finish the week**, and the
 `survived`. Ending paragraphs can be `{ text, if }`, and `{leaks}` in the text lists what
 the threat actor got. Add days and the finale moves to the new last day by itself.
 
+## Week two
+
+Days 6 to 10 add eight kinds of call, two a day. Each has its own `requestTypes` entry in
+`company.js` and its own rule, and that rule only looks at its own request type, so it never
+changes an older call. The calls need a few extra `claims` (listed at the top of
+`callers.js`): `subject`/`subjectId` for readbacks and leavers, `group`, `device`, `tool`,
+`shipTo`, `vendor` and `days`. The tools to check them: AD Lookup shows devices and
+searches asset tags, the HR Roster shows contractors, home addresses and leaver handovers,
+and the Groups tab (`groups.js`) shows owners.
+
 ## Random callers
 
 Put `{ procedural: 2 }` in a day's `callers` list for two random callers at that point in
 the queue. Each one is a new employee built from `pools.js` (name, department, title, site,
-phone), added to the directory for the day so every tool can find them, plus a call. About
-a third are attackers, each with one tell from the table above that today's rules can catch
-(the newest rule's tells come up most). Genuine ones are sometimes travelling from Day 3.
+phone, laptop, home address), added to the directory for the day so every tool can find
+them, plus a call. They can make any request whose rule is on (today's new ones most), and
+open, explain and joke from the pools. About a third are attackers, each with one tell from
+the table above that today's rules can catch (today's new rules' tells come up most). Genuine
+ones are sometimes travelling from Day 3.
 
-The picks come from a seed saved with the game, so a reload replays the same callers and a
-New game shuffles them. Add names, lines or phone numbers to `pools.js` for more variety.
+Every game also adds `POOLS.staffCount` background coworkers to the directory. They never
+call, but they make searches busier and own laptops an attacker might borrow a tag from.
+
+The picks come from a seed saved with the game, so a reload replays the same callers and
+staff, and a New game picks new ones. Add names, lines, jokes or phone numbers to
+`pools.js` for more variety.
 
 ## Scoring
 
