@@ -110,8 +110,25 @@ export function renderMute() {
   muteBtn.title = muted ? 'Sound off' : 'Sound on';
 }
 
+// Which window a phone shows: 'call' or 'tools'. Wider screens show both, whatever this says
+// (the CSS under "Phones" in desktop.css decides).
+export function showView(view) {
+  document.querySelector('.desktop').dataset.view = view;
+  for (const b of document.querySelectorAll('.win-btn')) {
+    const on = b.dataset.view === view;
+    b.classList.toggle('active', on);
+    b.setAttribute('aria-pressed', String(on));
+  }
+}
+
 // onSettings: the gear button in the tray.
 export function initTaskbar({ onSettings }) {
+  for (const b of document.querySelectorAll('.win-btn')) {
+    b.addEventListener('click', () => {
+      audio.play('click');
+      showView(b.dataset.view);
+    });
+  }
   document.getElementById('mute-btn').addEventListener('click', () => {
     audio.setMuted(!audio.isMuted());
     renderMute();

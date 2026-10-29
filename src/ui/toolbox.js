@@ -2,7 +2,7 @@
 // { id, label, mount(panel), reset() } and optionally search(query), setCaller(caller)
 // and setDay(day, rules).
 
-import { el, createWindow } from './desktop.js';
+import { el, createWindow, showView } from './desktop.js';
 import * as audio from '../audio.js';
 import * as adLookup from './tools/adLookup.js';
 import * as hrRoster from './tools/hrRoster.js';
@@ -48,6 +48,7 @@ export const selectById = (id) => select(TOOLS.find((t) => t.id === id) ?? TOOLS
 
 // Searches the active tool, or AD Lookup if the active tool has no search.
 export function searchFor(query) {
+  showView('tools');
   if (!active.search) select(adLookup);
   active.search(query);
 }

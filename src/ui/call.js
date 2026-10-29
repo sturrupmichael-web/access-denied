@@ -4,7 +4,7 @@
 // passed to ring().
 
 import { COMPANY } from '../../data/company.js';
-import { el, createWindow } from './desktop.js';
+import { el, createWindow, showView } from './desktop.js';
 import * as stamp from './stamp.js';
 import * as audio from '../audio.js';
 import * as settings from '../settings.js';
@@ -123,6 +123,7 @@ export function idle(message) {
 //   onDecision(choice)  the stamp has landed: 'approve' | 'deny' | 'escalate'
 export function ring(next, callHandlers) {
   idle('Phone is ringing...');
+  showView('call');
   caller = next;
   handlers = callHandlers;
   asked = new Set();
