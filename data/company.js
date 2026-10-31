@@ -25,20 +25,40 @@ export const COMPANY = {
   ],
 
   // Department names exactly as AD spells them.
-  departments: ["Engineering", "Executive", "Facilities", "Finance", "IT", "Logistics", "Sales"],
+  departments: ["Engineering", "Executive", "Facilities", "Finance", "HR", "IT", "Logistics", "Sales"],
 
   // Every request a caller can make. A caller's `claims.request` must be one of these keys.
   // Ticket History entries use the same keys (or "other").
   //   label       - what the intake form shows
   //   privileged  - true for admin-level requests (Day 4 adds a manager-callback rule for these)
+  //   needsGroup  - optional. The AD group the employee must be in to ask for this
+  //                 (the "inRequiredGroup" check, Day 9)
+  // The second week (Days 6 to 10) adds the requests from mfa_swap down. Each one has its
+  // own rule in rules.js; they only come up once that rule is on.
   requestTypes: {
-    password_reset:   { label: "Password reset",            privileged: false },
-    account_unlock:   { label: "Account unlock",            privileged: false },
-    access_request:   { label: "Access request",            privileged: false },
-    software_install: { label: "Software install",          privileged: false },
-    admin_access:     { label: "Admin / privileged access", privileged: true },
-    other:            { label: "Other",                     privileged: false }
+    password_reset:    { label: "Password reset",              privileged: false },
+    account_unlock:    { label: "Account unlock",              privileged: false },
+    access_request:    { label: "Access request",              privileged: false },
+    software_install:  { label: "Software install",            privileged: false },
+    admin_access:      { label: "Admin / privileged access",   privileged: true },
+    mfa_swap:          { label: "MFA device swap",             privileged: false },
+    info_readback:     { label: "Read back a user's details",  privileged: false },
+    shared_access:     { label: "Shared mailbox / list access", privileged: false },
+    leaver_access:     { label: "Leaver's mailbox or files",   privileged: false },
+    remote_session:    { label: "Remote session",              privileged: false },
+    lost_device:       { label: "Lost or stolen laptop",       privileged: false },
+    vendor_change:     { label: "Vendor bank details change",  privileged: true, needsGroup: "AP-BankChanges" },
+    account_extension: { label: "Contractor / VPN extension",  privileged: true },
+    other:             { label: "Other",                       privileged: false }
   },
+
+  // Second-week reference data, shown in the Policy Binder once the rule that uses it is on.
+  // The AD group whose members may ask for someone else's details (rule "no-readback").
+  securityGroup: "SEC-Operations",
+  // The only remote support tool the desk will install or connect with (rule "remote-tool").
+  approvedRemoteTool: "HD Assist",
+  // The longest contractor extension Tier 1 can grant, in days (rule "contractor-extension").
+  maxExtensionDays: 90,
 
   // The shift clock. In-game time runs from `start` to `end` over `realSeconds` of real
   // time (480 real seconds for 8 game hours = one game minute per real second). The clock
@@ -57,6 +77,8 @@ export const COMPANY = {
     question: 3,   // each "Ask a question"
     callback: 8,   // "Call manager": dialing out, waiting, explaining
     mfa: 4,        // "Send MFA push": waiting for someone to find their phone
+    deskCallback: 5,  // "Call desk phone": hanging up and ringing the number on file
+    ownerCallback: 8, // "Call group owner": finding out who that even is
     escalate: 10   // handing the call to Tier 2 takes a while
   }
 };

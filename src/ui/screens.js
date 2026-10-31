@@ -215,7 +215,7 @@ export function showHowToPlay() {
         el('li', { text: 'Ask questions, call their manager, or send an MFA push when the policy says to. Each costs a few minutes.' }),
         el('li', { text: "Approve, Deny or Escalate. Each morning's briefing adds a rule, and the Policy tab has all of them." }),
       ]),
-      el('p', { text: "Let an attacker in and the Breach meter climbs. Turn real people away and CSAT drops. Do either too often and Bev runs out of patience. Survive the week and there's a promotion in it." }),
+      el('p', { text: "Let an attacker in and the Breach meter climbs. Turn real people away and CSAT drops. Do either too often and Bev runs out of patience. Survive your two-week probation and there's a promotion in it." }),
     ]),
     buttons: [{ label: 'Got it', primary: true }],
   });

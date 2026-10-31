@@ -2,6 +2,7 @@
 
 import { COMPANY } from '../../../data/company.js';
 import { el } from '../desktop.js';
+import { findEmployee } from '../../verdict.js';
 import { directorySearch, recordList, nothingSelected } from './search.js';
 
 export const id = 'hr';
@@ -29,15 +30,24 @@ export const reset = () => finder.reset();
 function show(emp) {
   const { hr } = emp;
   const site = COMPANY.sites.find((s) => s.id === emp.site);
-  const endLabel = { terminated: 'Terminated on', leave: 'Leave ends' }[hr.status];
+  const contractor = hr.type === 'contractor';
+  const endLabel = contractor
+    ? (hr.status === 'terminated' ? 'Contract ended' : 'Contract ends')
+    : { terminated: 'Terminated on', leave: 'Leave ends' }[hr.status];
+  const sponsor = contractor && emp.manager && findEmployee(emp.manager);
+  const handover = hr.handoverTo && findEmployee(hr.handoverTo);
   record.replaceChildren(el('h3', { text: emp.name }), recordList([
     ['Employment', el('span', { class: `hr-${hr.status}`, text: STATUS[hr.status] })],
+    ['Worker type', contractor ? 'CONTRACTOR' : 'Employee'],
+    ['Sponsor', sponsor && `${sponsor.name} (${sponsor.id})`],
     ['Employee ID', emp.id],
     ['Job title', emp.title],
     ['Department', emp.department],
     ['Work site', site?.name ?? emp.site],
     ['Start date', hr.startDate],
     [endLabel, endLabel && hr.endDate],
+    ['Data handover to', handover && `${handover.name} (${handover.id})`],
+    ['Home address', hr.address],
     ['Note', hr.note],
   ]));
 }

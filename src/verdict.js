@@ -5,6 +5,7 @@ import { COMPANY } from '../data/company.js';
 import { DIRECTORY } from '../data/directory.js';
 import { RULES } from '../data/rules.js';
 import { DAYS } from '../data/days.js';
+import { GROUPS } from '../data/groups.js';
 import { CHECKS } from './checks.js';
 
 const SEVERITY = { approve: 0, escalate: 1, deny: 2 };
@@ -15,12 +16,21 @@ export const findEmployee = (id) => {
   return DIRECTORY.find((e) => e.id.toUpperCase() === key) ?? null;
 };
 
-export const NO_ACTIONS = { asked: [], callback: null, mfa: null };
+// Shared mailboxes and lists by name (Groups tab), and who a device's asset tag belongs to.
+export const findGroup = (name) => GROUPS.find((g) => g.name.toLowerCase() === String(name ?? '').trim().toLowerCase()) ?? null;
+export const deviceOwner = (tag) => {
+  const key = String(tag ?? '').trim().toUpperCase();
+  return DIRECTORY.find((e) => (e.devices ?? []).some((d) => d.toUpperCase() === key)) ?? null;
+};
+
+export const NO_ACTIONS = { asked: [], callback: null, mfa: null, deskCallback: null, ownerCallback: null };
 
 const ctx = {
   company: COMPANY,
   findEmployee,
   siteByName: (name) => COMPANY.sites.find((s) => s.name.toLowerCase() === String(name ?? '').trim().toLowerCase()) ?? null,
+  findGroup,
+  deviceOwner,
 };
 
 // Rules switch on with a day's `addRules` and stay on until a later `removeRules`.

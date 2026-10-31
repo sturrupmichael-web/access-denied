@@ -39,6 +39,7 @@ function show(emp) {
     ['Manager', manager ? `${manager.name} (${manager.id})` : 'None'],
     ['Office', site ? `${site.name}, ${site.city}` : emp.site],
     ['Phone', emp.phone],
+    ['Devices', emp.devices?.join(', ')],
     ['Last logon', emp.ad.lastLogon],
     ['Groups', el('span', { class: 'groups' }, emp.ad.groups.map((g) => el('span', { class: 'chip', text: g })))],
   ]));

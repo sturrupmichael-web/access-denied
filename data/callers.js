@@ -22,6 +22,15 @@
  *     callback    string   Number they ask you to call back on.
  *     request     string   A key from company.requestTypes.
  *     detail      string   Optional. Free text about the request.
+ *     Week-two requests need a few more (npm test checks they're there):
+ *     subject     string   info_readback, leaver_access: the employee it's about
+ *     subjectId   string   ... and their ID (leaver_access needs it)
+ *     group       string   shared_access: a group name from groups.js
+ *     device      string   remote_session, lost_device: an asset tag
+ *     tool        string   remote_session: the remote tool they want
+ *     shipTo      string   lost_device: where the replacement should go
+ *     vendor      string   vendor_change: the supplier
+ *     days        number   account_extension: how many more days
  *   }
  *   callerId: {          What the phone system shows (Caller ID tool).
  *     number      string
@@ -39,6 +48,9 @@
  *                relies on a Caller ID tell a `tell` on every question.
  *   managerCallback  Optional. What "Call manager" returns:
  *                  { result: "confirms" | "denies" | "unreachable", line: "..." }
+ *                Default: confirms for genuine callers, denies for attackers.
+ *   deskCallback, ownerCallback  Optional. What "Call desk phone" and
+ *                "Call group owner" return, in the same shape as managerCallback.
  *                Default: confirms for genuine callers, denies for attackers.
  *   mfa          Optional. What "Send MFA push" returns:
  *                  { result: "approved" | "denied" | "timeout", line: "..." }
@@ -1244,5 +1256,740 @@ export const CALLERS = [
           "But it's the same VoIP line as Wednesday, and the push went to the real Rick, who was in his office, not at an airport."
       }
     ]
+  },
+  /* =========================================================================
+   * WEEK TWO (Days 6-10). Each day brings two new kinds of call. The 0199
+   * caller keeps coming, with new tricks.
+   * ========================================================================= */
+
+  /* ---------- Day 6: MFA device swaps and "IT Security" readbacks ---------- */
+  {
+    id: "d6-priya-mfa",
+    attacker: false,
+    character: "receptionist",
+    claims: {
+      name: "Priya Raman",
+      employeeId: "HD-10423",
+      department: "Facilities",
+      site: "Brookfield HQ",
+      manager: "Gloria Okafor",
+      callback: "(330) 555-0142",
+      request: "mfa_swap",
+      detail: "New phone. Old one retired to a drawer."
+    },
+    callerId: { number: "(330) 555-0142", location: "Brookfield, OH" },
+    dialogue: [
+      { from: "agent", text: "HD ServiceDesk, this is Tier 1. How can I help?" },
+      { from: "caller", text: "Hi! It's Priya, front desk. Happy Monday! Is it happy? It's Monday." },
+      { from: "caller", text: "My nephew set up my new phone at the weekend and now the authenticator thing is on the old one. Which is in a drawer. With the takeaway menus." },
+      { from: "agent", text: "I can help. Can I get your employee ID?" },
+      { from: "caller", text: "HD-10423. There are cinnamon buns in the break room, by the way. Officially they're for the visitors." }
+    ],
+    questions: [
+      { ask: "Who's your manager?", answer: "Gloria Okafor. She's had a new phone for a year and still uses it as a torch only." },
+      { ask: "Where's your old phone?", answer: "In my desk drawer, under a takeaway menu for a place that closed in 2021." }
+    ],
+    deskCallback: { result: "confirms", line: "You ring (330) 555-0142. Priya: \"You just rang me? You're on the other line! Yes, it's me. Hello, me.\"" },
+    debrief: "Priya really did get a new phone. The callback to her desk phone on file reached her, at her desk. That's the whole check."
+  },
+  {
+    id: "d6-yusuf-readback",
+    attacker: false,
+    character: "security",
+    claims: {
+      name: "Yusuf Adebayo",
+      employeeId: "HD-12950",
+      department: "IT",
+      site: "Brookfield HQ",
+      manager: "Richard Halvorsen",
+      callback: "(330) 555-0109",
+      request: "info_readback",
+      subject: "Jonathan Whittaker",
+      subjectId: "HD-12266",
+      detail: "Confirm Jon Whittaker's desk number and last logon for an alert."
+    },
+    callerId: { number: "(330) 555-0109", location: "Brookfield, OH" },
+    dialogue: [
+      { from: "agent", text: "HD ServiceDesk, this is Tier 1. How can I help?" },
+      { from: "caller", text: "Yusuf Adebayo, Security Operations. I'm at my desk, so check the Caller ID before you tell me anything." },
+      { from: "caller", text: "We've had another odd login on Jon Whittaker's account. Can you read me his desk number and last logon? I want to ring him on a number I trust." },
+      { from: "agent", text: "Employee ID?" },
+      { from: "caller", text: "HD-12950. And well done for asking. Most people don't." }
+    ],
+    questions: [
+      { ask: "Who's your manager?", answer: "Rick. Halvorsen. He thinks Security is a type of fence." },
+      { ask: "Why do you need his details?", answer: "Our 0199 friend has been using Jon's name all week. I want to check the real Jon is still the real Jon." }
+    ],
+    debrief: "Yusuf is in SEC-Operations in AD, and Caller ID was his own desk phone. That's exactly when a readback is allowed."
+  },
+  {
+    id: "d6-marguerite-mfa-fake",
+    attacker: true,
+    character: "threat-actor",
+    claims: {
+      name: "Marguerite Dunleavy",
+      employeeId: "HD-10540",
+      department: "Finance",
+      site: "Brookfield HQ",
+      manager: "Richard Halvorsen",
+      callback: "(330) 555-0199",
+      request: "mfa_swap",
+      detail: "New phone. Move the authenticator to this number."
+    },
+    callerId: { number: "(234) 555-0199", location: "Akron, OH" },
+    dialogue: [
+      { from: "agent", text: "HD ServiceDesk, this is Tier 1. How can I help?" },
+      { from: "caller", text: "Marguerite Dunleavy, Finance Controller. I've got a new phone and I need my authenticator moved onto it. Now, please." },
+      { from: "caller", text: "Month end doesn't stop because a phone company can't transfer an app. Register this number and we're done." },
+      { from: "agent", text: "Can I get your employee ID?" },
+      { from: "caller", text: "HD-10540. I don't have time for twenty questions, so let's do none." }
+    ],
+    questions: [
+      { ask: "Who's your manager?", answer: "Rick Halvorsen. Obviously." },
+      { ask: "Where's your old phone?", answer: "Gone. Recycled. Melted down. It doesn't matter." }
+    ],
+    deskCallback: { result: "denies", line: "You ring (330) 555-0108. Marguerite: \"I'm holding my phone. It's the same phone. It's been the same phone since 2019. Who is asking?\"" },
+    debrief:
+      "Name, ID and site were all right, and the tone was perfect Marguerite. But the real Marguerite answered her desk phone holding her old phone. " +
+      "Moving her MFA would have handed the 0199 caller the Finance Controller's account.",
+    leaks: ["marguerite-mfa"]
+  },
+  {
+    id: "d6-rick-mfa",
+    attacker: false,
+    character: "ceo",
+    claims: {
+      name: "Rick Halvorsen",
+      employeeId: "HD-10002",
+      department: "Executive",
+      site: "Brookfield HQ",
+      manager: "The board, in theory",
+      callback: "(330) 555-0115",
+      request: "mfa_swap",
+      detail: "Old phone went through the dishwasher."
+    },
+    callerId: { number: "(330) 555-0115", location: "Brookfield, OH" },
+    dialogue: [
+      { from: "agent", text: "HD ServiceDesk, this is Tier 1. How can I help?" },
+      { from: "caller", text: "It's Rick. The CEO Rick. My grandkids put my phone in the dishwasher. On the pots setting." },
+      { from: "caller", text: "It's very clean now. It doesn't turn on. I've got a new one. Can you move the authenticator thing?" },
+      { from: "agent", text: "Can I get your employee ID?" },
+      { from: "caller", text: "Kyle says it's HD-10002. Kyle knows everything. Kyle, what's my password? He won't tell me." }
+    ],
+    questions: [
+      { ask: "Are you at your desk?", answer: "God, no. I'm in the car park. Kyle has my desk." },
+      { ask: "Which site are you at?", answer: "Brookfield. The car park, specifically. Bay 1. It has my name on it." }
+    ],
+    deskCallback: { result: "unreachable", line: "(330) 555-0100 rings out. Then Rick's voicemail: \"This is Rick. I don't check this.\"" },
+    debrief:
+      "It really was Rick, but nobody answered his desk phone, so nobody could confirm the swap. Escalate it: " +
+      "Tier 2 will find him. Probably in the car park."
+  },
+  {
+    id: "d6-mei-fake",
+    attacker: true,
+    character: "threat-actor",
+    claims: {
+      name: "Mei Lindholm",
+      employeeId: "HD-13260",
+      department: "IT",
+      site: "Brookfield HQ",
+      manager: "Yusuf Adebayo",
+      callback: "(330) 555-0199",
+      request: "info_readback",
+      subject: "Marguerite Dunleavy",
+      subjectId: "HD-10540",
+      detail: "Read back Marguerite Dunleavy's mobile and travel calendar."
+    },
+    callerId: { number: "(234) 555-0199", location: "Akron, OH" },
+    dialogue: [
+      { from: "agent", text: "HD ServiceDesk, this is Tier 1. How can I help?" },
+      { from: "caller", text: "Hi, Mei Lindholm, Security Operations. I'm working from home today, so I'm on my mobile." },
+      { from: "caller", text: "We're investigating Marguerite Dunleavy's account after this morning. Can you read me her mobile number and where her calendar says she is this week?" },
+      { from: "caller", text: "Yusuf said you'd be helpful. You were very helpful to him." },
+      { from: "agent", text: "Can I get your employee ID?" },
+      { from: "caller", text: "HD-13260." }
+    ],
+    questions: [
+      { ask: "Who's your manager?", answer: "Yusuf Adebayo." },
+      { ask: "Why aren't you on your desk phone?", answer: "I told you, I'm at home. My cat is sitting on the desk phone. Metaphorically." }
+    ],
+    debrief:
+      "Mei is real and in SEC-Operations, which is why they picked her. But Caller ID was (234) 555-0199, not Mei's desk phone (330) 555-0137. " +
+      "Real Security staff call from their desks. Marguerite's mobile and travel plans are exactly what you need for the next pretext.",
+    leaks: ["staff-details"]
+  },
+
+  /* ---------- Day 7: shared mailboxes, lists, and leavers ---------- */
+  {
+    id: "d7-dale-kurt",
+    attacker: false,
+    character: "warehouse-manager",
+    claims: {
+      name: "Dale Brannigan",
+      employeeId: "HD-11850",
+      department: "Logistics",
+      site: "Denver Distribution Center",
+      manager: "Teresa Vu",
+      callback: "(303) 555-0163",
+      request: "leaver_access",
+      subject: "Kurt Lindgren",
+      subjectId: "HD-12644",
+      detail: "Kurt's files and pick schedules."
+    },
+    callerId: { number: "(303) 555-0163", location: "Denver, CO" },
+    dialogue: [
+      { from: "agent", text: "HD ServiceDesk, this is Tier 1. How can I help?" },
+      { from: "caller", text: "DALE. DENVER. KURT IS GONE." },
+      { from: "caller", text: "Sorry. Inside voice. Kurt left on Friday and his pick schedules are in his files. I need them. I don't need Kurt. I need the schedules." },
+      { from: "caller", text: "And don't switch his account back on. He'll uninstall the scanner app again. From beyond the grave. Well, from Colorado Springs." },
+      { from: "agent", text: "Can I get your employee ID?" },
+      { from: "caller", text: "HD-11850. Same as last week. Same as forever." }
+    ],
+    questions: [
+      { ask: "Were you Kurt's manager?", answer: "For two years. Longest two years of my life." },
+      { ask: "Did HR approve the handover?", answer: "Lorraine did it Friday. She said, and I quote, 'take them, Dale, please'." }
+    ],
+    debrief:
+      "The HR Roster shows Kurt as terminated, with his files handed over to Dale. So Dale gets the files, and Kurt's account stays closed. " +
+      "The scanner app is safe. For now."
+  },
+  {
+    id: "d7-tomasz-oncall",
+    attacker: false,
+    character: "new-starter",
+    claims: {
+      name: "Tomasz Nowak",
+      employeeId: "HD-11731",
+      department: "Engineering",
+      site: "Brookfield HQ",
+      manager: "Aisha Karimi",
+      callback: "(330) 555-0168",
+      request: "shared_access",
+      group: "ENG-Oncall",
+      detail: "Add to the on-call list."
+    },
+    callerId: { number: "(330) 555-0168", location: "Brookfield, OH" },
+    dialogue: [
+      { from: "agent", text: "HD ServiceDesk, this is Tier 1. How can I help?" },
+      { from: "caller", text: "Hi, Tomasz, Engineering. The new one. Still new. Three weeks new." },
+      { from: "caller", text: "I volunteered for the on-call rota. Everyone looked at me like I'd said I want to be a kidney donor. Can you add me to ENG-Oncall?" },
+      { from: "agent", text: "Can I get your employee ID?" },
+      { from: "caller", text: "HD-11731. I have it on a sticky note. And a second sticky note, in case I lose the first." }
+    ],
+    questions: [
+      { ask: "Who's your manager?", answer: "Aisha Karimi. She said 'are you sure?' four times." },
+      { ask: "Do you know what ENG-Oncall is?", answer: "Pager alerts at 3am. I'm told it builds character." }
+    ],
+    ownerCallback: { result: "confirms", line: "Aisha: \"He volunteered. Nobody volunteers. Add him before he changes his mind.\"" },
+    debrief: "ENG-Oncall is restricted, so you rang its owner, Aisha, and she said yes. Enthusiastically."
+  },
+  {
+    id: "d7-gordon-mailbox-fake",
+    attacker: true,
+    character: "threat-actor",
+    claims: {
+      name: "Jonathan Whittaker",
+      employeeId: "HD-12266",
+      department: "Finance",
+      site: "Brookfield HQ",
+      manager: "Marguerite Dunleavy",
+      callback: "(330) 555-0199",
+      request: "leaver_access",
+      subject: "Gordon Fitch",
+      subjectId: "HD-11477",
+      detail: "Needs Gordon Fitch's mailbox for the supplier list."
+    },
+    callerId: { number: "(234) 555-0199", location: "Akron, OH" },
+    dialogue: [
+      { from: "agent", text: "HD ServiceDesk, this is Tier 1. How can I help?" },
+      { from: "caller", text: "Jon Whittaker, accounts payable. Spelt right this time. With all the t's." },
+      { from: "caller", text: "Gordon Fitch left and he had our whole supplier list in his mailbox. Marguerite asked me to grab it. Could you just reopen his account for an hour?" },
+      { from: "agent", text: "Can I get your employee ID?" },
+      { from: "caller", text: "HD-12266. Honestly it's an hour. What could happen in an hour?" }
+    ],
+    questions: [
+      { ask: "Were you Gordon's manager?", answer: "No, but Marguerite was, and she asked me to do it.", tell: "Gordon reported to Marguerite, and HR approved his handover to her, not to Jon." },
+      { ask: "Who's your manager?", answer: "Marguerite Dunleavy." }
+    ],
+    debrief:
+      "The HR Roster says Gordon's mailbox and files were handed over to Marguerite, not Jon. And we never reopen a leaver's account, not even for an hour. " +
+      "It was (234) 555-0199 again. Gordon's mailbox has every supplier we pay.",
+    leaks: ["gordon-mailbox"]
+  },
+  {
+    id: "d7-imogen-nadia",
+    attacker: false,
+    character: "sales-vp",
+    claims: {
+      name: "Imogen Castellanos",
+      employeeId: "HD-10688",
+      department: "Sales",
+      site: "Leeds Office",
+      manager: "Richard Halvorsen",
+      callback: "+44 113 496 0123",
+      request: "leaver_access",
+      subject: "Nadia Petrov",
+      subjectId: "HD-12907",
+      detail: "Needs Nadia Petrov's customer emails."
+    },
+    callerId: { number: "+44 113 496 0123", location: "Leeds, UK" },
+    dialogue: [
+      { from: "agent", text: "HD ServiceDesk, this is Tier 1. How can I help?" },
+      { from: "caller", text: "Imogen Castellanos, Sales, calling from Leeds. Where it is raining. Obviously." },
+      { from: "caller", text: "Nadia Petrov left a few weeks ago and three of her customers say they've been emailing her ever since. Can I have her mailbox?" },
+      { from: "agent", text: "Can I get your employee ID?" },
+      { from: "caller", text: "HD-10688. And before you ask, no, I have not filled in the HR form. Is there an HR form?" }
+    ],
+    questions: [
+      { ask: "Were you Nadia's manager?", answer: "Yes. She reported to me. Until she didn't." },
+      { ask: "Which site are you at?", answer: "Leeds. In a meeting room called 'Innovation'. It has no windows." }
+    ],
+    debrief:
+      "Imogen really was Nadia's manager, but HR hasn't approved a handover, so there's nothing on the HR Roster. " +
+      "That's an escalate: Tier 2 gets HR to sign it off. There is, in fact, an HR form."
+  },
+  {
+    id: "d7-raj-fake",
+    attacker: true,
+    character: "threat-actor",
+    claims: {
+      name: "Raj Patel",
+      employeeId: "HD-12701",
+      department: "IT",
+      site: "Brookfield HQ",
+      manager: "Bev Kowalczyk",
+      callback: "(330) 555-0199",
+      request: "shared_access",
+      group: "Security-Incidents",
+      detail: "Add to the Security-Incidents mailbox."
+    },
+    callerId: { number: "(234) 555-0199", location: "Akron, OH" },
+    dialogue: [
+      { from: "agent", text: "HD ServiceDesk, this is Tier 1. How can I help?" },
+      { from: "caller", text: "Hey, it's Raj, Tier 2. Your Raj. Escalation Raj." },
+      { from: "caller", text: "Security want Tier 2 copied on incidents now. Can you add me to the Security-Incidents mailbox? Yusuf's fine with it." },
+      { from: "agent", text: "Can I get your employee ID?" },
+      { from: "caller", text: "HD-12701. You can skip the callback, Yusuf's in back-to-backs." }
+    ],
+    questions: [
+      { ask: "Who's your manager?", answer: "Bev. Bev Kowalczyk." },
+      { ask: "What's your desk number?", answer: "Just use this one. I'm hot-desking.", tell: "AD has Raj's desk phone as (330) 555-0153. This is the 0199 number again." }
+    ],
+    ownerCallback: { result: "denies", line: "Yusuf: \"Raj? Raj is standing at my desk asking why his name keeps coming up in my incident reports. No.\"" },
+    debrief:
+      "Security-Incidents is restricted, and its owner, Yusuf, said no. Raj was standing at his desk at the time. " +
+      "With a copy of the incident mailbox, the 0199 caller would know exactly what Security knows about them.",
+    leaks: ["incident-mailbox"]
+  },
+
+  /* ---------- Day 8: remote sessions and lost laptops ---------- */
+  {
+    id: "d8-carla-remote",
+    attacker: false,
+    character: "forklift-lead",
+    claims: {
+      name: "Carla Mendes",
+      employeeId: "HD-12588",
+      department: "Logistics",
+      site: "Denver Distribution Center",
+      manager: "Dale Brannigan",
+      callback: "(720) 555-0158",
+      request: "remote_session",
+      tool: "HD Assist",
+      device: "LT-40886",
+      detail: "Remote session to fix the fantasy football spreadsheet. And email."
+    },
+    callerId: { number: "(720) 555-0158", location: "Denver, CO" },
+    dialogue: [
+      { from: "agent", text: "HD ServiceDesk, this is Tier 1. How can I help?" },
+      { from: "caller", text: "Carla, Denver. Forklifts. Fantasy football league commissioner, if that helps." },
+      { from: "caller", text: "Outlook freezes every time I open the league spreadsheet. Can you remote in with HD Assist? Laptop's LT-40886." },
+      { from: "agent", text: "Can I get your employee ID?" },
+      { from: "caller", text: "HD-12588. Dale says hi. Dale didn't say hi. I'm saying it for him." }
+    ],
+    questions: [
+      { ask: "Who's your manager?", answer: "Dale. You know Dale. Everyone knows Dale." },
+      { ask: "What's the asset tag?", answer: "LT-40886. It's on a sticker. Under another sticker that says 'CARLA'S. HANDS OFF'." }
+    ],
+    debrief: "LT-40886 is Carla's laptop in AD, and she asked for HD Assist, the approved tool. The spreadsheet, sadly, is beyond help."
+  },
+  {
+    id: "d8-felix-laptop",
+    attacker: false,
+    character: "salesperson",
+    claims: {
+      name: "Felix Ambrose",
+      employeeId: "HD-13001",
+      department: "Sales",
+      site: "Leeds Office",
+      manager: "Imogen Castellanos",
+      callback: "+44 113 496 0187",
+      request: "lost_device",
+      device: "LT-41672",
+      shipTo: "Leeds Office",
+      detail: "Laptop left in a London taxi."
+    },
+    callerId: { number: "+44 20 7946 0958", location: "London, UK" },
+    dialogue: [
+      { from: "agent", text: "HD ServiceDesk, this is Tier 1. How can I help?" },
+      { from: "caller", text: "Hello, Felix Ambrose, Sales, Leeds. I'm in London. Without my laptop. Which is in a taxi. Which has gone." },
+      { from: "caller", text: "It's LT-41672. Can you lock it? And send a new one to the Leeds office, I'm back tomorrow." },
+      { from: "agent", text: "Can I get your employee ID?" },
+      { from: "caller", text: "HD-13001. The taxi driver was very nice. Very fast. Too fast, in hindsight." }
+    ],
+    questions: [
+      { ask: "Who's your manager?", answer: "Imogen Castellanos. She's going to love this." },
+      { ask: "Which site are you at?", answer: "Normally Leeds. Today a client's office in London, on their phone." }
+    ],
+    debrief:
+      "Felix was travelling, so Caller ID was London. His answers matched, LT-41672 is his, and the replacement goes to his own site. " +
+      "The laptop gets locked and wiped wherever that taxi is."
+  },
+  {
+    id: "d8-tomasz-fake",
+    attacker: true,
+    character: "threat-actor",
+    claims: {
+      name: "Tomasz Nowak",
+      employeeId: "HD-11731",
+      department: "Engineering",
+      site: "Brookfield HQ",
+      manager: "Aisha Karimi",
+      callback: "(330) 555-0199",
+      request: "remote_session",
+      tool: "QuickSupportPro",
+      device: "LT-42327",
+      detail: "Install QuickSupportPro so a vendor can fix the build."
+    },
+    callerId: { number: "(234) 555-0199", location: "Akron, OH" },
+    dialogue: [
+      { from: "agent", text: "HD ServiceDesk, this is Tier 1. How can I help?" },
+      { from: "caller", text: "Hi, Tomasz Nowak, Engineering. The new one." },
+      { from: "caller", text: "Our build vendor needs to look at my laptop. They use QuickSupportPro. Can you install it on LT-42327 and read me the session code?" },
+      { from: "agent", text: "Can I get your employee ID?" },
+      { from: "caller", text: "HD-11731. Aisha says it's urgent. Everything's urgent in Engineering. That's how you know it's Engineering." }
+    ],
+    questions: [
+      { ask: "Who's your manager?", answer: "Aisha Karimi." },
+      { ask: "Which vendor is it?", answer: "The build one. You know. The build people." }
+    ],
+    debrief:
+      "LT-42327 really is Tomasz's laptop, but QuickSupportPro isn't HD Assist. Installing it and reading back the session code " +
+      "would have given the 0199 caller a remote control for an engineering laptop.",
+    leaks: ["remote-foothold"]
+  },
+  {
+    id: "d8-wendy-laptop",
+    attacker: false,
+    character: "office-coordinator",
+    claims: {
+      name: "Wendy Achterberg",
+      employeeId: "HD-12415",
+      department: "Facilities",
+      site: "Denver Distribution Center",
+      manager: "Gloria Okafor",
+      callback: "(303) 555-0122",
+      request: "lost_device",
+      device: "LT-40493",
+      shipTo: "114 Federal Boulevard, Denver, CO",
+      detail: "Laptop stolen from car. Working from home this week."
+    },
+    callerId: { number: "(303) 555-0122", location: "Denver, CO" },
+    dialogue: [
+      { from: "agent", text: "HD ServiceDesk, this is Tier 1. How can I help?" },
+      { from: "caller", text: "Hi, Wendy Achterberg, Denver office. Somebody broke into my car last night and took my laptop. And my umbrella. Who steals an umbrella?" },
+      { from: "caller", text: "It's LT-40493. I'm working from home all week while they fix the window. Can you send the new one to my house? The one HR has." },
+      { from: "agent", text: "Can I get your employee ID?" },
+      { from: "caller", text: "HD-12415. I've already filed the police report. They asked about the umbrella too." }
+    ],
+    questions: [
+      { ask: "Who's your manager?", answer: "Gloria Okafor." },
+      { ask: "Where should the replacement go?", answer: "114 Federal Boulevard. Same as ever." }
+    ],
+    debrief: "LT-40493 is Wendy's, and 114 Federal Boulevard is the home address in the HR Roster. A replacement can go there. The umbrella is gone forever."
+  },
+  {
+    id: "d8-hannah-laptop-fake",
+    attacker: true,
+    character: "threat-actor",
+    claims: {
+      name: "Hannah Liu",
+      employeeId: "HD-13122",
+      department: "Sales",
+      site: "Brookfield HQ",
+      manager: "Imogen Castellanos",
+      callback: "(330) 555-0199",
+      request: "lost_device",
+      device: "LT-42065",
+      shipTo: "Room 312, Airport Lodge, Cleveland, OH",
+      detail: "Laptop stolen. Ship replacement to hotel."
+    },
+    callerId: { number: "(234) 555-0199", location: "Akron, OH" },
+    dialogue: [
+      { from: "agent", text: "HD ServiceDesk, this is Tier 1. How can I help?" },
+      { from: "caller", text: "Hi, Hannah Liu, Sales Ops. My laptop's been stolen. LT-42065. I'm so stressed." },
+      { from: "caller", text: "I'm stuck at a hotel by the airport until Friday. Can you overnight a new one to Room 312, Airport Lodge, Cleveland?" },
+      { from: "agent", text: "Can I get your employee ID?" },
+      { from: "caller", text: "HD-13122. Please hurry. I have dashboards to build. Lots of dashboards." }
+    ],
+    questions: [
+      { ask: "Who's your manager?", answer: "Imogen Castellanos." },
+      { ask: "Where should the replacement go?", answer: "The hotel. Room 312. They'll hold it at reception." }
+    ],
+    debrief:
+      "The laptop tag was Hannah's, but a replacement can only go to her site or the home address HR has on file. " +
+      "A hotel room near the airport is how a thief gets a brand-new company laptop, already enrolled. The real Hannah was at her desk.",
+    leaks: ["laptop"]
+  },
+
+  /* ---------- Day 9: vendor bank changes and contractor extensions ---------- */
+  {
+    id: "d9-oksana-vendor",
+    attacker: false,
+    character: "treasury",
+    claims: {
+      name: "Oksana Brandt",
+      employeeId: "HD-12480",
+      department: "Finance",
+      site: "Brookfield HQ",
+      manager: "Marguerite Dunleavy",
+      callback: "(330) 555-0172",
+      request: "vendor_change",
+      vendor: "Teesdale Fasteners",
+      detail: "New bank account for Teesdale Fasteners, verified with them by phone."
+    },
+    callerId: { number: "(330) 555-0172", location: "Brookfield, OH" },
+    dialogue: [
+      { from: "agent", text: "HD ServiceDesk, this is Tier 1. How can I help?" },
+      { from: "caller", text: "Oksana Brandt, Treasury. I need a supplier bank change pushed through: Teesdale Fasteners." },
+      { from: "caller", text: "They wrote to us, and I rang them back on the number we've had for ten years. It's real. Their old bank was bought by a bigger bank, which was bought by a bank." },
+      { from: "agent", text: "Can I get your employee ID?" },
+      { from: "caller", text: "HD-12480. And please do call Marguerite. I would think less of you if you didn't." }
+    ],
+    questions: [
+      { ask: "Who's your manager?", answer: "Marguerite Dunleavy." },
+      { ask: "Who asked for the change?", answer: "Teesdale did, on letterhead, and I confirmed it with them on our old number. That's the process." }
+    ],
+    managerCallback: { result: "confirms", line: "Marguerite: \"Yes, that's Oksana, and yes, I signed it. Thank you for calling. Genuinely.\"" },
+    debrief: "Oksana is in AP-BankChanges, and Marguerite confirmed it on the callback. That's what a real vendor change looks like: boring, and checked twice."
+  },
+  {
+    id: "d9-sven-extension",
+    attacker: false,
+    character: "contractor",
+    claims: {
+      name: "Sven Olafsson",
+      employeeId: "HD-13340",
+      department: "Engineering",
+      site: "Brookfield HQ",
+      manager: "Aisha Karimi",
+      callback: "(234) 555-0161",
+      request: "account_extension",
+      days: 60,
+      detail: "Contract renewed through January."
+    },
+    callerId: { number: "(234) 555-0161", location: "Akron, OH" },
+    dialogue: [
+      { from: "agent", text: "HD ServiceDesk, this is Tier 1. How can I help?" },
+      { from: "caller", text: "Hei! Sven Olafsson, contract build engineer. My account expires on Friday, and so, apparently, do I." },
+      { from: "caller", text: "Aisha renewed my contract until January. Can you extend my account by sixty days? I'd like to keep logging in. It's a big part of the job." },
+      { from: "agent", text: "Can I get your employee ID?" },
+      { from: "caller", text: "HD-13340. I brought cardamom buns for the build team. They are gone. Engineers are like seagulls." }
+    ],
+    questions: [
+      { ask: "Who's your sponsor?", answer: "Aisha Karimi." },
+      { ask: "Which site are you at?", answer: "Brookfield, at the desk by the window that doesn't open." }
+    ],
+    managerCallback: { result: "confirms", line: "Aisha: \"Yes, extend Sven. If he leaves, the build farm leaves with him.\"" },
+    debrief: "The HR Roster shows Sven as a contractor ending Friday, sponsored by Aisha. Sixty days is under the limit, and Aisha confirmed. Sven lives to build another day."
+  },
+  {
+    id: "d9-kyle-fake",
+    attacker: true,
+    character: "threat-actor",
+    claims: {
+      name: "Kyle Ferraro",
+      employeeId: "HD-13077",
+      department: "Executive",
+      site: "Brookfield HQ",
+      manager: "Richard Halvorsen",
+      callback: "(330) 555-0199",
+      request: "vendor_change",
+      vendor: "Kessler Steel",
+      detail: "Kessler Steel's new bank details, on behalf of the CFO."
+    },
+    callerId: { number: "(234) 555-0199", location: "Akron, OH" },
+    dialogue: [
+      { from: "agent", text: "HD ServiceDesk, this is Tier 1. How can I help?" },
+      { from: "caller", text: "Kyle Ferraro, executive office. I'm calling on behalf of the CFO, who is on a plane." },
+      { from: "caller", text: "Kessler Steel have new bank details and they need to be live before this afternoon's payment run, or the steel stops. All the steel." },
+      { from: "agent", text: "Can I get your employee ID?" },
+      { from: "caller", text: "HD-13077. The CFO really, really wants this done. I can't stress 'really' enough." }
+    ],
+    questions: [
+      { ask: "Who's your manager?", answer: "Rick Halvorsen." },
+      { ask: "Who asked for the change?", answer: "The CFO. Personally. From a plane. Over the phone. On the plane." }
+    ],
+    managerCallback: { result: "denies", line: "Rick: \"Kyle? Kyle's in here doing my expenses. Also, do we have a CFO? I thought that was Marguerite.\"" },
+    debrief:
+      "Kyle is real, but he isn't in AP-BankChanges, and \"the CFO asked me\" doesn't change that. Rick says Kyle was doing his expenses at the time. " +
+      "This is textbook invoice fraud: urgency, authority, and a new bank account.",
+    leaks: ["vendor-bank"]
+  },
+  {
+    id: "d9-lucia-fake",
+    attacker: true,
+    character: "threat-actor",
+    claims: {
+      name: "Lucia Marchetti",
+      employeeId: "HD-13355",
+      department: "Logistics",
+      site: "Denver Distribution Center",
+      manager: "Teresa Vu",
+      callback: "(330) 555-0199",
+      request: "account_extension",
+      days: 90,
+      detail: "Extend VPN access for the inventory project."
+    },
+    callerId: { number: "(234) 555-0199", location: "Akron, OH" },
+    dialogue: [
+      { from: "agent", text: "HD ServiceDesk, this is Tier 1. How can I help?" },
+      { from: "caller", text: "Hi! Lucia Marchetti, inventory analyst, Denver. Contractor." },
+      { from: "caller", text: "My VPN account's about to lapse and the inventory project's been extended. Can I get ninety days? Teresa approved it." },
+      { from: "agent", text: "Can I get your employee ID?" },
+      { from: "caller", text: "HD-13355. I'm calling from Ohio this week, visiting the in-laws. Don't ask." }
+    ],
+    questions: [
+      { ask: "Who's your sponsor?", answer: "Teresa Vu." },
+      { ask: "Which site are you at?", answer: "Denver, normally. Ohio this week.", tell: "the HR Roster says Lucia's contract ended in August. She isn't based anywhere any more." }
+    ],
+    debrief:
+      "The HR Roster shows Lucia's contract ended on 2026-08-28, but her VPN account was never switched off. An ended contract is a terminated record, " +
+      "so policy says deny. Someone found a forgotten account and wanted to keep it.",
+    leaks: ["contractor-vpn"]
+  },
+
+  /* ---------- Day 10: everything, all at once ---------- */
+  {
+    id: "d10-priya-list",
+    attacker: false,
+    character: "receptionist",
+    claims: {
+      name: "Priya Raman",
+      employeeId: "HD-10423",
+      department: "Facilities",
+      site: "Brookfield HQ",
+      manager: "Gloria Okafor",
+      callback: "(330) 555-0142",
+      request: "shared_access",
+      group: "ENG-Lunch-and-Learn",
+      detail: "Add to the Thursday talks list. For the pizza."
+    },
+    callerId: { number: "(330) 555-0142", location: "Brookfield, OH" },
+    dialogue: [
+      { from: "agent", text: "HD ServiceDesk, this is Tier 1. How can I help?" },
+      { from: "caller", text: "Hi, it's Priya! Last day of your probation, right? I made you a card. Everyone's signed it. Even Dale. He used capitals." },
+      { from: "caller", text: "Quick one: can you add me to ENG-Lunch-and-Learn? I'm told there's pizza. I'm also told there's learning, but mainly pizza." },
+      { from: "agent", text: "Can I get your employee ID?" },
+      { from: "caller", text: "HD-10423. You know that by now. You could probably recite it." }
+    ],
+    questions: [
+      { ask: "Who's your manager?", answer: "Gloria Okafor." },
+      { ask: "Why that list?", answer: "Pizza. I said that. Also, a talk about databases. But pizza." }
+    ],
+    debrief: "ENG-Lunch-and-Learn is open to anyone. No callback needed. Priya gets pizza, and you get a card."
+  },
+  {
+    id: "d10-marguerite-vendor-fake",
+    attacker: true,
+    character: "threat-actor",
+    claims: {
+      name: "Marguerite Dunleavy",
+      employeeId: "HD-10540",
+      department: "Finance",
+      site: "Brookfield HQ",
+      manager: "Richard Halvorsen",
+      callback: "(330) 555-0199",
+      request: "vendor_change",
+      vendor: "Kessler Steel",
+      detail: "Redirect Kessler Steel's payments before the 3pm run. $2.4M."
+    },
+    callerId: { number: "(234) 555-0199", location: "Akron, OH" },
+    dialogue: [
+      { from: "agent", text: "HD ServiceDesk, this is Tier 1. How can I help?" },
+      { from: "caller", text: "Marguerite Dunleavy, Finance Controller. I'll be brief. Kessler Steel have changed banks, and the three o'clock run is two point four million dollars." },
+      { from: "caller", text: "I'm in AP-BankChanges, as you'll see. Update the account and we can all have a lovely weekend." },
+      { from: "agent", text: "Can I get your employee ID?" },
+      { from: "caller", text: "HD-10540. Ring Rick if you must. He'll say yes. He always says yes." }
+    ],
+    questions: [
+      { ask: "Who's your manager?", answer: "Rick Halvorsen." },
+      { ask: "Who asked for the change?", answer: "Kessler did. By email. A very official email. With a logo." }
+    ],
+    managerCallback: { result: "denies", line: "Rick: \"Marguerite? She's across the table from me, cutting a cake that says CONGRATULATIONS. No. Who is this? Bev! BEV!\"" },
+    debrief:
+      "Everything checked out on paper: Marguerite is in AP-BankChanges, and the ID was right. The callback is what caught it. " +
+      "Rick was sitting opposite the real Marguerite, and the cake was for you. That was the 0199 caller's big one: $2.4 million.",
+    leaks: ["payment-run"],
+    variants: [
+      {
+        if: { leaked: "marguerite-mfa" },
+        callerId: { number: "(330) 555-0108", location: "Brookfield, OH" },
+        dialogue: [
+          { from: "agent", text: "HD ServiceDesk, this is Tier 1. How can I help?" },
+          { from: "caller", text: "Marguerite Dunleavy, from my desk, so you can see it's me. My MFA's on my new phone now, thanks to your colleague on Monday." },
+          { from: "caller", text: "Kessler Steel have changed banks, and the three o'clock run is two point four million dollars. Update the account, please." },
+          { from: "agent", text: "Can I get your employee ID?" },
+          { from: "caller", text: "HD-10540. Ring Rick if you must." }
+        ],
+        debrief:
+          "Since Monday, the 0199 caller has had Marguerite's MFA, and today Caller ID showed her real desk number. Caller ID is easy to fake. " +
+          "The callback still rang the real Rick, sitting across from the real Marguerite. That was their big one: $2.4 million."
+      },
+      {
+        if: { leaked: "staff-details" },
+        dialogue: [
+          { from: "agent", text: "HD ServiceDesk, this is Tier 1. How can I help?" },
+          { from: "caller", text: "Marguerite Dunleavy. I'm at the Columbus offsite, as my calendar will tell you, so I'm on my mobile." },
+          { from: "caller", text: "Kessler Steel have changed banks, and the three o'clock run is two point four million dollars. Update the account, please." },
+          { from: "agent", text: "Can I get your employee ID?" },
+          { from: "caller", text: "HD-10540. Ring Rick if you must. He'll say yes." }
+        ],
+        debrief:
+          "They knew Marguerite's travel plans from Monday's readback, which made the story sound right. " +
+          "But the callback rang Rick, sitting across from the real Marguerite, who wasn't in Columbus at all."
+      }
+    ]
+  },
+  {
+    id: "d10-rick-reset",
+    attacker: false,
+    character: "ceo",
+    claims: {
+      name: "Rick Halvorsen",
+      employeeId: "HD-10002",
+      department: "Executive",
+      site: "Brookfield HQ",
+      manager: "The board, in theory",
+      callback: "(330) 555-0100",
+      request: "password_reset",
+      detail: "Forgot password. Tradition at this point."
+    },
+    callerId: { number: "(330) 555-0100", location: "Brookfield, OH" },
+    dialogue: [
+      { from: "agent", text: "HD ServiceDesk, this is Tier 1. How can I help?" },
+      { from: "caller", text: "It's Rick. I forgot my password. I know. I know. Kyle's started a chart." },
+      { from: "caller", text: "Also, I hear it's your last day of probation. Well done. Bev says you're 'alright', which from Bev is basically a knighthood." },
+      { from: "agent", text: "Can I get your employee ID?" },
+      { from: "caller", text: "HD-10002. I've got my phone this time. It's been nowhere near a dishwasher." }
+    ],
+    questions: [
+      { ask: "Which site are you at?", answer: "Brookfield. My actual desk, for once." },
+      { ask: "Have you got your phone?", answer: "In my hand. I'm looking at it. It's looking at me." }
+    ],
+    mfa: { result: "approved", line: "Push approved on Rick's registered phone. On the third try. He pressed the wrong button twice." },
+    debrief: "It's Rick, it's his desk phone, and the MFA push was approved on his real phone. His password is new. He's already forgotten it."
   }
+
 ];

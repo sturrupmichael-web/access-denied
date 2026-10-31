@@ -11,13 +11,15 @@ export const matchEmployees = (query) => {
   return DIRECTORY.filter((e) =>
     e.id.toLowerCase().includes(q) ||
     e.name.toLowerCase().includes(q) ||
-    (e.aliases ?? []).some((a) => a.toLowerCase().includes(q)));
+    (e.aliases ?? []).some((a) => a.toLowerCase().includes(q)) ||
+    (e.devices ?? []).some((d) => d.toLowerCase() === q));
 };
 
 // columns: [['Header', (emp) => text], ...]. onSelect(emp) shows the record.
+// match(query) finds the rows (default: employees by name, ID or asset tag).
 // Returns { root, search(query), reset() }.
-export function directorySearch({ label, columns, onSelect, onClear }) {
-  const input = el('input', { class: 'field inset', type: 'search', placeholder: 'Name or employee ID', 'aria-label': label, autocomplete: 'off' });
+export function directorySearch({ label, columns, onSelect, onClear, match = matchEmployees, placeholder = 'Name, employee ID or asset tag' }) {
+  const input = el('input', { class: 'field inset', type: 'search', placeholder, 'aria-label': label, autocomplete: 'off' });
   const results = el('div', { class: 'results inset' });
   const hint = (text) => results.replaceChildren(el('p', { class: 'none', text }));
 
@@ -25,7 +27,7 @@ export function directorySearch({ label, columns, onSelect, onClear }) {
     input.value = query;
     onClear();
     if (query.trim().length < 2) return hint('Type at least 2 characters.');
-    const matches = matchEmployees(query);
+    const matches = match(query);
     if (!matches.length) return hint(`No objects found matching "${query.trim()}".`);
 
     const tbody = el('tbody');
@@ -63,7 +65,7 @@ export function directorySearch({ label, columns, onSelect, onClear }) {
 
   const reset = () => {
     input.value = '';
-    hint('Enter a name or ID and press Find Now.');
+    hint(`Search for a ${placeholder[0].toLowerCase()}${placeholder.slice(1)} and press Find Now.`);
     onClear();
   };
 

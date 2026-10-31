@@ -1,25 +1,30 @@
 # Access Denied
 
 A Papers, Please-style game set on an IT service desk. You're a Tier 1 agent at Halvorsen
-Dynamics, taking calls for password resets, unlocks, access requests and installs. Most
+Dynamics, taking calls for password resets, unlocks, access requests and installs, and in
+week two MFA swaps, mailbox access, leavers' files, remote sessions, lost laptops, vendor
+bank changes, contractor extensions and "IT Security" asking you to read back details. Most
 callers are who they say they are, but some are social engineers. Check each caller's claims
 against your desk tools, then Approve, Deny or Escalate.
 
 The company, the people and the numbers are made up. This is a personal project.
 
-**Status: done (Phase 5).** A five-day week, each day adding a rule. Six desk tools, verification
-questions, manager callbacks and MFA pushes, the Breach / CSAT / Patience meters, random
-callers from Day 3, and saving. The story runs through the inbox: coworkers who remember how
-you treated them, and a threat actor who comes back every day using whatever you let slip
-earlier. The week ends in a promotion, or not. Title screen, settings, synthesized sound.
+**Status: done, plus a second week.** A two-week probation: five days that each add a rule,
+then five that each add two new kinds of call. Seven desk tools, verification questions, four
+desk actions (manager, desk phone and group owner callbacks, and MFA pushes), the Breach / CSAT /
+Patience meters, random callers every day, and saving. Every New game picks new random callers,
+with their own names, problems and jokes, and a new set of background coworkers in the directory.
+The story runs through the inbox: coworkers who remember how you treated them, and a threat actor
+who comes back every day using whatever you let slip earlier. Probation ends in a promotion, or
+not. Title screen, settings, synthesized sound.
 
 ```
 dev.html          the page for development (loads src/ as ES modules)
 index.html        the built page (npm run build), one self-contained file; not in git
-data/             all the content: company, employees, rules, callers, days, meters, endings,
-                  and the pools random callers are built from (see data/schema.md)
-src/              the game: shift.js, clock.js, verdict.js, checks.js, actions.js (callback, MFA),
-                  meters.js, generator.js (random callers), state.js (saving),
+data/             all the content: company, employees, groups, rules, callers, days, meters,
+                  endings, and the pools random callers are built from (see data/schema.md)
+src/              the game: shift.js, clock.js, verdict.js, checks.js, actions.js (callbacks, MFA),
+                  meters.js, generator.js (random callers and staff), state.js (saving),
                   ui/ (windows, call, stamp, dialogs) and ui/tools/ (one file per desk tool)
                   story.js (emails, leaks, caller variants, endings), settings.js, audio.js
 css/              the Windows 95-style look
@@ -52,23 +57,28 @@ it.
 3. Click **Answer** when the phone rings. The transcript types out. Click it to skip ahead.
 4. Check the ticket intake against the **Desk Tools**. Click a name or ID on the intake to
    search for it in the open tab.
-   - **AD Lookup**: the account: status, title, manager, office, groups
-   - **HR Roster**: active, terminated or on leave
+   - **AD Lookup**: the account: status, title, manager, office, desk phone, devices, groups.
+     Search an asset tag (LT-40886) to see whose laptop it is
+   - **HR Roster**: active, terminated or on leave; contractors and their end dates; home
+     address; who gets a leaver's files
    - **Org Chart**: who reports to whom
    - **Tickets**: recent tickets, so you can spot a suspicious number of resets
+   - **Groups**: shared mailboxes and lists, their owners, and whether they're open
    - **Caller ID**: the incoming number, where it geolocates, and who has called from it before
    - **Policy**: today's rules, the employee ID format and the sites
 5. **? Ask question** to hear the caller's answer to a verification question. Each one
    costs a few minutes of clock. From Day 3, a wrong answer means deny.
 6. From Day 4, **☎ Call manager** rings the employee's manager from the directory to confirm
    an admin request. From Day 5, **📱 MFA push** pings the account's registered phone before
-   a password reset. Each costs clock time and gives a result in the transcript.
+   a password reset. From Day 6, **☎ Call desk phone** rings the desk number on file, and
+   from Day 7 **☎ Call group owner** rings the owner of the group they want. Each costs clock
+   time and gives a result in the transcript.
 7. Stamp it: **Approve**, **Deny** or **Escalate**. Escalating is always safe, but it costs
    ten minutes and annoys Tier 2 when it wasn't needed. The call review explains what the
    checks found, who the caller really was, and how the meters moved.
 8. At 17:00, or when the queue is empty, the evening inbox arrives, then the summary: your
    calls, breaches, wrongful denials, callers left waiting, CSAT, and a note from Bev. Then
-   start the next day. After Day 5, **Finish the week** shows your ending.
+   start the next day. After Day 10, **Finish the week** shows your ending.
 
 | Day | New rule |
 | --- | --- |
@@ -77,6 +87,11 @@ it.
 | 3 | Caller ID must match the employee's site, or ask a verification question |
 | 4 | Admin requests need a manager callback |
 | 5 | Password resets need an approved MFA push |
+| 6 | MFA device swaps need a desk phone callback. Never read back anyone's details unless the caller is in SEC-Operations and on their own desk phone |
+| 7 | Restricted groups need the owner's OK. Leavers' files go only to whoever HR approved |
+| 8 | Remote sessions use HD Assist on the caller's own device. Lost laptops: their device, shipped to their site or HR address |
+| 9 | Vendor bank changes need AP-BankChanges. Contractor extensions: contractors only, 90 days at most, sponsor confirms |
+| 10 | Nothing new. Everything at once |
 
 **The meters** in the taskbar carry over between days. **Breach** goes up when you approve an
 attacker: the first one brings a Security Incident email, the second sends you home for the
@@ -88,8 +103,14 @@ you're on a Performance Improvement Plan.
 **The story.** Priya, Dale and Rick call more than once, and they remember you. The caller
 who keeps using (330) 555-0199 comes back every day as someone else. Each call you approve
 for them hands over something real (a mailbox, the phone list, approver rights), Security
-emails you about it, and their next call uses it. Survive the week with at most one
-breach and Bev's patience intact, and you're promoted to Tier 2.
+emails you about it, and their next call uses it. Survive both weeks with at most two
+breaches and Bev's patience intact, and you're promoted to Tier 2.
+
+**Every game is different.** Each day mixes the handwritten story calls with random callers:
+new employees with names, problems, jokes, moods and tells picked from `data/pools.js`.
+A New game picks a new seed, so you get different people and about 50 different background
+coworkers in the directory. Within one game the seed is saved, so a reload replays the same
+callers.
 
 The game saves after every call. Reload, and the title screen offers to continue.
 Saves use `localStorage` keys starting with `accessDenied:`, so they don't mix with other
@@ -109,7 +130,7 @@ exist) and checks that every new caller is fair.
 **Add a caller**
 
 1. In `data/callers.js`, copy a caller with the same kind of request and give it a new
-   `id`, such as `d6-priya-printer`.
+   `id`, such as `d11-priya-printer`.
 2. Change `claims` (what they tell you), `callerId`, `dialogue` and `questions`. Use
    555-01xx phone numbers, which are reserved as fictional.
 3. A genuine caller: make every claim match the directory (`data/directory.js`), and add

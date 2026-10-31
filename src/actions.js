@@ -3,13 +3,15 @@
 //
 //   managerCallback(caller) -> { result: 'confirms' | 'denies' | 'unreachable', line, manager }
 //   mfaPush(caller)         -> { result: 'approved' | 'denied' | 'timeout', line }
+//   deskCallback(caller)    -> { result: 'confirms' | 'denies' | 'unreachable', line }
+//   ownerCallback(caller)   -> { result: 'confirms' | 'denies' | 'unreachable', line }
 //
-// A caller can set the outcome with `managerCallback: { result, line }` or
-// `mfa: { result, line }`. Otherwise genuine callers' managers confirm and their pushes are
+// A caller can set the outcome with `managerCallback: { result, line }`,
+// `mfa: { result, line }`, `deskCallback` or `ownerCallback`. Otherwise genuine callers' managers confirm and their pushes are
 // approved (except about one in six, where they don't have their phone), and attackers'
 // managers say no and the real owner denies the push.
 
-import { findEmployee } from './verdict.js';
+import { findEmployee, findGroup } from './verdict.js';
 
 const firstName = (name) => String(name).split(' ')[0];
 
@@ -52,13 +54,46 @@ export function mfaPush(caller) {
   return { result, line };
 }
 
+// Hangs up and rings the employee's desk phone on file, whoever is on the line.
+export function deskCallback(caller) {
+  const emp = findEmployee(caller.claims.employeeId);
+  if (!emp) return { result: 'unreachable', line: 'There is no desk phone on file for that employee ID.' };
+  const set = caller.deskCallback ?? {};
+  const result = set.result ?? (caller.attacker ? 'denies' : 'confirms');
+  const who = firstName(emp.name);
+  const line = set.line ?? {
+    confirms: `You ring ${emp.phone}. ${who}: "Yes, that was me. Thanks for checking, I suppose."`,
+    denies: `You ring ${emp.phone}. ${who} picks up: "Sorry, what? I haven't called the help desk. Should I be worried?"`,
+    unreachable: `${emp.phone} rings out. Nobody is at ${who}'s desk.`,
+  }[result];
+  return { result, line };
+}
+
+// Rings the owner of the group the caller wants to join (claims.group).
+export function ownerCallback(caller) {
+  const group = findGroup(caller.claims.group);
+  const owner = group && findEmployee(group.owner);
+  if (!owner) return { result: 'unreachable', line: `There's no group called "${caller.claims.group}", so there's no owner to call.` };
+  const set = caller.ownerCallback ?? {};
+  const result = set.result ?? (caller.attacker ? 'denies' : 'confirms');
+  const who = firstName(owner.name);
+  const them = firstName(caller.claims.name);
+  const line = set.line ?? {
+    confirms: `${who}: "${them}? Yes, add them to ${group.name}. Thanks."`,
+    denies: `${who}: "No. I own ${group.name} and nobody asked me. Who is this?"`,
+    unreachable: `${owner.name}'s voicemail: "I'm out today. For anything urgent, it can probably wait."`,
+  }[result];
+  return { result, line };
+}
+
+// Every desk action by the name rules.js uses for it.
+export const ACTIONS = { callback: managerCallback, mfa: mfaPush, deskCallback, ownerCallback };
+
 // Everything a careful agent would do on this call on this day: every question asked, and
 // every action the day's rules unlock. Used by the tests to check each caller is fair.
 export function idealActions(caller, rules) {
   const unlocked = new Set(rules.flatMap((r) => r.actions ?? []));
-  return {
-    asked: caller.questions ?? [],
-    callback: unlocked.has('callback') ? managerCallback(caller).result : null,
-    mfa: unlocked.has('mfa') ? mfaPush(caller).result : null,
-  };
+  const done = { asked: caller.questions ?? [] };
+  for (const [kind, run] of Object.entries(ACTIONS)) done[kind] = unlocked.has(kind) ? run(caller).result : null;
+  return done;
 }

@@ -12,9 +12,9 @@ import * as audio from './audio.js';
 import * as state from './state.js';
 import * as clock from './clock.js';
 import * as meters from './meters.js';
-import { activeRules, evaluate, grade } from './verdict.js';
-import { managerCallback, mfaPush } from './actions.js';
-import { generateCallers, clearGenerated } from './generator.js';
+import { activeRules, evaluate, grade, NO_ACTIONS } from './verdict.js';
+import { ACTIONS } from './actions.js';
+import { generateCallers, generateStaff, clearGenerated } from './generator.js';
 import { setClock, setQueue } from './ui/desktop.js';
 import * as call from './ui/call.js';
 import * as toolbox from './ui/toolbox.js';
@@ -47,9 +47,10 @@ clock.onEnd(() => {
 
 // Handcrafted caller ids and { procedural: n } entries, turned into caller objects.
 // Generated callers depend only on the game's seed and the day, so a reload rebuilds the
-// same queue.
+// same queue. The game's background staff come first, so they're the same all game.
 function buildQueue() {
   clearGenerated();
+  generateStaff(state.gameSeed());
   const seed = state.gameSeed() ^ (day.day * 7919);
   let batch = 0;
   return day.callers.flatMap((entry) => {
@@ -100,7 +101,7 @@ function nextCall() {
   const caller = queue[state.current().callIndex];
   if (!caller) return endShift();
 
-  active = { caller, answeredAt: null, actions: { asked: [], callback: null, mfa: null } };
+  active = { caller, answeredAt: null, actions: { ...NO_ACTIONS, asked: [] } };
   updateQueue();
   toolbox.newCall(null);
   call.ring(caller, {
@@ -115,12 +116,12 @@ function nextCall() {
       clock.advance(COMPANY.timeCosts.question);
     },
     onAction: (kind) => {
-      const outcome = kind === 'callback' ? managerCallback(caller) : mfaPush(caller);
+      const outcome = ACTIONS[kind](caller);
       active.actions[kind] = outcome.result;
       clock.advance(COMPANY.timeCosts[kind]);
       return outcome;
     },
-    onLookup: (text) => toolbox.searchFor(text),
+    onLookup: (text, toolId) => toolbox.searchFor(text, toolId),
     onDecision: (choice) => decided(caller, choice),
   });
 }
