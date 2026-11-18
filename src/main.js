@@ -2,6 +2,7 @@
 // which starts a new game or continues a saved one. `window.accessDenied` is for the tests
 // and for poking at the game from the console.
 
+import { joinSiteLive } from './site-live.js';
 import { validateData } from './validate.js';
 import { initTaskbar, setMeters } from './ui/desktop.js';
 import * as call from './ui/call.js';
@@ -65,3 +66,5 @@ title();
 
 window.accessDenied = { problems, shift, state, clock, verdict, meters, story, settings };
 document.getElementById('boot')?.remove();
+
+joinSiteLive('access-denied'); // live "N playing" + visit counter on michaelsturrup.com
